@@ -36,7 +36,7 @@ public class LaudspeakerEvent {
         this.event = event;
         this.correlationValue = id;
         this.payload = payload;
-        this.timestamp = new Date(); // Refactor to use PostHogDateProvider if needed
+        this.timestamp = new Date();
         this.uuid = UUID.randomUUID();
     }
 

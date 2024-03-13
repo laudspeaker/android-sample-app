@@ -44,7 +44,7 @@ public class Laudspeaker {
                 }
 
                 if (apiKey == config.getApiKey()) {
-                    config.getLogger().log("API Key: " + config.getApiKey() + " already has a PostHog instance.");
+                    config.getLogger().log("API Key: " + config.getApiKey() + " already has a Laudspeaker instance.");
                 }
 
                 LaudspeakerPreferences cachePreferences = memoryPreferences;
@@ -259,11 +259,11 @@ public class Laudspeaker {
             // Assuming there's a method to sanitize properties, similar to Kotlin's
             Map<String, Object> sanitizedProperties = config != null && config.getPropertiesSanitizer() != null ? config.getPropertiesSanitizer().sanitize(mergedProperties) : mergedProperties;
 
-            LaudspeakerEvent postHogEvent = new LaudspeakerEvent(event, distinctId, sanitizedProperties);
+            LaudspeakerEvent laudspeakerEvent = new LaudspeakerEvent(event, distinctId, sanitizedProperties);
 
 
             if (queue != null) {
-                queue.add(postHogEvent);
+                queue.add(laudspeakerEvent);
             }
 
         } catch (Throwable e) {
