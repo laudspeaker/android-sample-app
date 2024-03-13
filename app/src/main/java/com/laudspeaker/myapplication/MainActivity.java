@@ -17,7 +17,9 @@ import androidx.navigation.ui.NavigationUI;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.FirebaseApp;
 import com.laudspeaker.android.ConnectListener;
+import com.laudspeaker.android.Laudspeaker;
 import com.laudspeaker.android.LaudspeakerAndroid;
+import com.laudspeaker.android.LaudspeakerAndroidConfig;
 import com.laudspeaker.myapplication.databinding.ActivityMainBinding;
 
 import java.net.URISyntaxException;
@@ -43,16 +45,17 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
-        binding.fab.setOnClickListener(view -> Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAnchorView(R.id.fab).setAction("Action", null).show());
-
-        LaudspeakerAndroid laudspeakerAndroid = new LaudspeakerAndroid(this, getPreferences(MODE_PRIVATE), "eSLajTyYMURIvk13z3ibXmfgPAGybsRDvejVPpx4","https://fbdade1d813f.ngrok.app",true);
+        LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig("abc213", "https://5d151ff4c7ba.ngrok.app");
+        Laudspeaker laudspeaker = LaudspeakerAndroid.with(this, config);
 
 
         Button identify_button = findViewById(R.id.identify_button);
         identify_button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                laudspeakerAndroid.identify("mahamad@laudspeaker.com");
+                Map<String, Object> myMap = new HashMap<>();
+                myMap.put("time", System.currentTimeMillis());
+                laudspeaker.identify("mahamad@laudspeaker.com", myMap);
             }
         });
 
@@ -60,7 +63,9 @@ public class MainActivity extends AppCompatActivity {
         fire_button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                laudspeakerAndroid.fire("example_event");
+                Map<String, Object> myMap = new HashMap<>();
+                myMap.put("time", System.currentTimeMillis());
+                laudspeaker.capture("hello", myMap);
             }
         });
 
@@ -73,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
                 buttonView.setChecked(!isChecked);
                 Map<String, Object> map = new HashMap<>();
                 map.put("notification_preferences", isChecked);
-                laudspeakerAndroid.set(map);
+                laudspeaker.set(map);
                 buttonView.setChecked(isChecked);
             }
         });
