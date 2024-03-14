@@ -6,11 +6,11 @@ public class LaudspeakerConfig {
 
     private final String apiKey;
     private String host = defaultHost;
-    private boolean debug = true;
+    private boolean debug = false;
     private int flushAt = 1;
     private int maxQueueSize = 1000;
     private int maxBatchSize = 50;
-    private int flushIntervalSeconds = 30;
+    private int flushIntervalSeconds = 1;
 
     // Internal usage
     private LaudspeakerLogger logger = new LaudspeakerLogger(this);

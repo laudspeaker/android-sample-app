@@ -13,7 +13,7 @@ public class LaudspeakerLogger {
     }
     public void log(String message) {
         if (isEnabled()) {
-            System.out.println("[Laudspeaker]: " + message);
+            System.out.println("[Laudspeaker SDK]: " + message);
         }
     }
     public boolean isEnabled() {

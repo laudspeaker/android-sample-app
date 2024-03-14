@@ -4,35 +4,34 @@ import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.Date;
-import java.util.List;
 
 
 public class Laudspeaker {
-    private final ExecutorService queueExecutor;
-    public volatile boolean enabled = false;
+    private final ExecutorService queueExecutor = Executors.newSingleThreadScheduledExecutor(new LaudspeakerThreadFactory("LaudspeakerQueueThread"));
     private final Object setupLock = new Object();
-    private final Object sessionLock = new Object();
-    private final Object anonymousLock = new Object();
-    private final Object distinctIdLock = new Object();
+    private final Object customerIdLock = new Object();
+    private final Object primaryKeyLock = new Object();
     private final Object fcmTokenLock = new Object();
+    public volatile boolean enabled = false;
     private LaudspeakerConfig config;
     private LaudspeakerQueue queue;
-    private LaudspeakerPreferences memoryPreferences = new LaudspeakerPreferences();
-    private UUID sessionIdNone = new UUID(0, 0);
-    private UUID sessionId = sessionIdNone;
-    private String anonymousIdCache;
-    private String distinctIdCache;
+    private LaudspeakerPreferences memoryPreferences;
+    private String customerIdCache;
+    private String primaryKeyCache;
     private String fcmTokenCache;
     private String apiKey;
 
 
-    private Laudspeaker(ExecutorService queueExecutor) {
-        this.queueExecutor = queueExecutor != null ? queueExecutor : Executors.newSingleThreadScheduledExecutor(new LaudspeakerThreadFactory("LaudspeakerQueueThread"));
+    public static <T extends LaudspeakerConfig> Laudspeaker with(T config) {
+        Laudspeaker instance = new Laudspeaker(); // Assuming there's a default constructor or appropriate constructor available
+        instance.setup(config);
+        instance.sendFcmTokenAsync();
+        return instance;
     }
 
     public <T extends LaudspeakerConfig> void setup(T config) {
@@ -47,126 +46,66 @@ public class Laudspeaker {
                     config.getLogger().log("API Key: " + config.getApiKey() + " already has a Laudspeaker instance.");
                 }
 
-                LaudspeakerPreferences cachePreferences = memoryPreferences;
-                config.setCachePreferences(cachePreferences);
+                this.memoryPreferences = config.getCachePreferences();
                 LaudspeakerApi api = new LaudspeakerApi(config);
-                queue = new LaudspeakerQueue(config, api, LaudspeakerApiEndpoint.EVENT, config.getStoragePrefix(), queueExecutor);
-
-                Date startDate = config.getDateProvider().currentDate();
+                this.queue = new LaudspeakerQueue(config, api, LaudspeakerApiEndpoint.EVENT, config.getStoragePrefix(), queueExecutor);
 
                 this.config = config;
-                this.queue = queue;
 
                 this.enabled = true;
 
                 queue.start();
 
-                startSession();
             } catch (Throwable e) {
-                config.getLogger().log("Setup failed: " + e.toString());
+                config.getLogger().log("Setup failed: " + e);
             }
         }
     }
 
-    public static <T extends LaudspeakerConfig> Laudspeaker with(T config) {
-        Laudspeaker instance = new Laudspeaker(null); // Assuming there's a default constructor or appropriate constructor available
-        instance.setup(config);
-        instance.sendFcmTokenAsync();
-        return instance;
-    }
-
-
-    public void close() {
-        synchronized (setupLock) {
-            try {
-                enabled = false;
-
-                if (config != null) {
-                    apiKey = null;
-                }
-
-                if (queue != null) {
-                    queue.stop();
-                }
-
-                endSession();
-            } catch (Throwable e) {
-                if (config != null) {
-                    config.getLogger().log("Close failed: " + e.toString());
-                }
-            }
-        }
-    }
-
-    public String getAnonymousId() {
-        synchronized (anonymousLock) {
-            if (anonymousIdCache == null || anonymousIdCache.isEmpty()) {
-                Object value = getPreferences().getValue(LaudspeakerPreferences.ANONYMOUS_ID, null);
+    public String getCustomerId() {
+        synchronized (customerIdLock) {
+            if (customerIdCache == null || customerIdCache.isEmpty()) {
+                Object value = getPreferences().getValue(LaudspeakerPreferences.CUSTOMER_ID, null);
                 if (value instanceof String && !((String) value).isEmpty()) {
-                    anonymousIdCache = (String) value;
+                    customerIdCache = (String) value;
                 } else {
-                    anonymousIdCache = UUID.randomUUID().toString();
-                    setAnonymousId(anonymousIdCache);
+                    customerIdCache = UUID.randomUUID().toString();
+                    setCustomerId(customerIdCache);
                 }
             }
-            return anonymousIdCache;
+            return customerIdCache;
         }
     }
 
-    public void setAnonymousId(String value) {
-        synchronized (anonymousLock) {
-            getPreferences().setValue(LaudspeakerPreferences.ANONYMOUS_ID, value);
-            this.anonymousIdCache = value; // Cache the value to avoid fetching it repeatedly
+    public void setCustomerId(String value) {
+        synchronized (customerIdLock) {
+            getPreferences().setValue(LaudspeakerPreferences.CUSTOMER_ID, value);
+            this.customerIdCache = value; // Cache the value to avoid fetching it repeatedly
         }
     }
 
 
-    public String getDistinctId() {
-        synchronized (distinctIdLock) {
-            if (distinctIdCache == null || distinctIdCache.isEmpty() || distinctIdCache == "") {
+    public String getPrimaryKey() {
+        synchronized (primaryKeyLock) {
+            if (primaryKeyCache == null || primaryKeyCache.isEmpty() || primaryKeyCache == "") {
 
-                Object value = getPreferences().getValue(LaudspeakerPreferences.DISTINCT_ID, getAnonymousId());
+                Object value = getPreferences().getValue(LaudspeakerPreferences.PRIMARY_KEY, getCustomerId());
 
                 if (value instanceof String) {
-                    distinctIdCache = (String) value;
+                    primaryKeyCache = (String) value;
                 } else {
-                    distinctIdCache = ""; // Default to empty string if value is not a string
+                    primaryKeyCache = ""; // Default to empty string if value is not a string
                 }
             }
         }
-        return distinctIdCache;
+        return primaryKeyCache;
     }
 
-    public String getFcmToken() {
-        synchronized (fcmTokenLock) {
-            if (fcmTokenCache == null || fcmTokenCache.isEmpty() || fcmTokenCache == "") {
-
-                Object value = getPreferences().getValue(LaudspeakerPreferences.FCM_TOKEN, null);
-
-                if (value instanceof String) {
-                    fcmTokenCache = (String) value;
-                } else {
-                    FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
-                        if (!task.isSuccessful()) {
-                            config.getLogger().log("Fetching FCM registration token failed: " + task.getException());
-                            fcmTokenCache = "";
-                        } else {
-                            fcmTokenCache = task.getResult();
-                            config.getLogger().log("Retrieved FCM Token: " + fcmTokenCache);
-                            setFcmToken(fcmTokenCache);
-                        }
-                    });
-                }
-            }
+    public void setPrimaryKey(String value) {
+        synchronized (primaryKeyLock) {
+            getPreferences().setValue(LaudspeakerPreferences.PRIMARY_KEY, value);
+            this.primaryKeyCache = value; // Update the cache
         }
-        return fcmTokenCache;
-    }
-
-    // Define a callback interface
-    public interface FcmTokenCallback {
-        void onTokenReceived(String token);
-
-        void onError(Exception exception);
     }
 
     // Modify getFcmToken to use the callback
@@ -206,27 +145,6 @@ public class Laudspeaker {
         }
     }
 
-    public void setDistinctId(String value) {
-        synchronized (distinctIdLock) {
-            getPreferences().setValue(LaudspeakerPreferences.DISTINCT_ID, value);
-            this.distinctIdCache = value; // Update the cache
-        }
-    }
-
-    public void startSession() {
-        synchronized (sessionLock) {
-            if (sessionId == sessionIdNone) {
-                sessionId = UUID.randomUUID();
-            }
-        }
-    }
-
-    public void endSession() {
-        synchronized (sessionLock) {
-            sessionId = sessionIdNone;
-        }
-    }
-
     public LaudspeakerPreferences getPreferences() {
         return memoryPreferences;
     }
@@ -245,21 +163,19 @@ public class Laudspeaker {
                 return;
             }
 
-            String distinctId = getDistinctId();
+            String customerId = getCustomerId();
 
-            if (distinctId == null || distinctId.trim().isEmpty()) {
+            if (customerId == null || customerId.trim().isEmpty()) {
                 if (config != null) {
-                    config.getLogger().log("capture call not allowed, distinctId is invalid: " + distinctId);
+                    config.getLogger().log("capture call not allowed, customer ID is invalid: " + customerId);
                 }
                 return;
             }
 
             Map<String, Object> mergedProperties = buildProperties(properties);
-
-            // Assuming there's a method to sanitize properties, similar to Kotlin's
             Map<String, Object> sanitizedProperties = config != null && config.getPropertiesSanitizer() != null ? config.getPropertiesSanitizer().sanitize(mergedProperties) : mergedProperties;
 
-            LaudspeakerEvent laudspeakerEvent = new LaudspeakerEvent(event, distinctId, sanitizedProperties);
+            LaudspeakerEvent laudspeakerEvent = new LaudspeakerEvent(event, customerId, sanitizedProperties);
 
 
             if (queue != null) {
@@ -268,12 +184,12 @@ public class Laudspeaker {
 
         } catch (Throwable e) {
             if (config != null) {
-                config.getLogger().log("Capture failed: " + e.toString());
+                config.getLogger().log("Capture failed: " + e);
             }
         }
     }
 
-    public void identify(String distinctId, Map<String, Object> userProperties) {
+    public void identify(String primaryKey, Map<String, Object> userProperties) {
 
         if (!isEnabled()) {
             return;
@@ -282,39 +198,24 @@ public class Laudspeaker {
         Map<String, Object> props = userProperties == null ? new HashMap<>() : userProperties;
 
 
-        if (distinctId == null || distinctId.trim().isEmpty()) {
+        if (primaryKey == null || primaryKey.trim().isEmpty()) {
             if (config != null) {
-                config.getLogger().log("identify call not allowed, distinctId is invalid: " + distinctId);
+                config.getLogger().log("identify call not allowed, primary key is invalid: " + primaryKey);
             }
             return;
         } else {
-            props.put("distinct_id", distinctId);
+            props.put("distinct_id", primaryKey);
         }
 
-        String previousDistinctId = getDistinctId();
-
-
-        String anonymousId = getAnonymousId();
-        if (anonymousId != null && !anonymousId.trim().isEmpty()) {
-            props.put("$anon_distinct_id", anonymousId);
-        } else {
-            if (config != null) {
-                config.getLogger().log("identify called with invalid anonymousId: " + anonymousId);
-            }
-        }
+        String previousPrimaryKey = getPrimaryKey();
 
         capture("$identify", props);
 
-        if (!previousDistinctId.equals(distinctId)) {
-            if (previousDistinctId != null && !previousDistinctId.trim().isEmpty()) {
-                setAnonymousId(previousDistinctId);
-            } else {
-                if (config != null) {
-                    config.getLogger().log("identify called with invalid former distinctId: " + previousDistinctId);
-                }
-            }
-            setDistinctId(distinctId);
+        // Check if primary key being set is the same as previously set
+        if (!previousPrimaryKey.equals(primaryKey)) {
+            setPrimaryKey(primaryKey);
         }
+
     }
 
     public void set(Map<String, Object> userProperties) {
@@ -323,65 +224,11 @@ public class Laudspeaker {
             return;
         }
 
-        Map<String, Object> props = new HashMap<>();
-        String anonymousId = getAnonymousId();
-        if (anonymousId != null && !anonymousId.trim().isEmpty()) {
-            props.put("$anon_distinct_id", anonymousId);
-        } else {
-            if (config != null) {
-                config.getLogger().log("identify called with invalid anonymousId: " + anonymousId);
-            }
-        }
-
         capture("$set", userProperties);
-    }
-
-    public void sendFcmToken() {
-
-        if (!isEnabled()) {
-            return;
-        }
-
-        String distinctId = getDistinctId();
-
-        if (distinctId == null || distinctId.trim().isEmpty()) {
-            if (config != null) {
-                config.getLogger().log("capture call not allowed, distinctId is invalid: " + distinctId);
-            }
-            return;
-        }
-
-        Map<String, Object> props = new HashMap<>();
-        String anonymousId = getAnonymousId();
-        if (anonymousId != null && !anonymousId.trim().isEmpty()) {
-            props.put("$anon_distinct_id", anonymousId);
-        } else {
-            if (config != null) {
-                config.getLogger().log("identify called with invalid anonymousId: " + anonymousId);
-            }
-        }
-        String fcmToken = getFcmToken();
-        if (fcmToken != null && !fcmToken.trim().isEmpty()) {
-            props.put("$anon_distinct_id", fcmToken);
-        } else {
-            if (config != null) {
-                config.getLogger().log("sendFcmToken called with invalid fcmToken: " + fcmToken);
-            }
-        }
-
-        capture("$fcm", props);
     }
 
     public void sendFcmTokenAsync() {
         if (!isEnabled()) {
-            return;
-        }
-
-        String distinctId = getDistinctId();
-        if (distinctId == null || distinctId.trim().isEmpty()) {
-            if (config != null) {
-                config.getLogger().log("capture call not allowed, distinctId is invalid: " + distinctId);
-            }
             return;
         }
 
@@ -418,6 +265,27 @@ public class Laudspeaker {
         return props;
     }
 
+    public void close() {
+        synchronized (setupLock) {
+            try {
+                enabled = false;
+
+                if (config != null) {
+                    apiKey = null;
+                }
+
+                if (queue != null) {
+                    queue.stop();
+                }
+
+            } catch (Throwable e) {
+                if (config != null) {
+                    config.getLogger().log("Close failed: " + e);
+                }
+            }
+        }
+    }
+
     public void reset() {
         if (!isEnabled()) {
             return;
@@ -428,7 +296,12 @@ public class Laudspeaker {
         if (queue != null) {
             queue.clear();
         }
+    }
 
-        endSession();
+    // Define a callback interface
+    public interface FcmTokenCallback {
+        void onTokenReceived(String token);
+
+        void onError(Exception exception);
     }
 }

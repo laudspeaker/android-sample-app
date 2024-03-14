@@ -1,52 +1,68 @@
 package com.laudspeaker.android;
 
 
-import java.util.HashMap;
+import android.content.Context;
+import android.content.SharedPreferences;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class LaudspeakerPreferences {
-    private final Object lock = new Object();
-    private final Map<String, Object> preferences = new HashMap<>();
     // Constants
-    public static final String ANONYMOUS_ID = "anonymousId";
-    public static final String DISTINCT_ID = "distinctId";
-    public static final String FCM_TOKEN = "fcmToken";
-
+    public static final String PREFERENCES_FILE_KEY = "com.laudspeaker.android.PREFERENCES";
+    public static final String CUSTOMER_ID = "customer_id";
+    public static final String PRIMARY_KEY = "primary_key";
+    public static final String FCM_TOKEN = "fcm_token";
     public static final String VERSION = "version";
     public static final String BUILD = "build";
+    public static final Set<String> ALL_INTERNAL_KEYS = Set.of(CUSTOMER_ID, PRIMARY_KEY, FCM_TOKEN, VERSION, BUILD);
+    private final SharedPreferences preferences;
 
-    public static final Set<String> ALL_INTERNAL_KEYS = Set.of(ANONYMOUS_ID, DISTINCT_ID, VERSION, BUILD);
+    public LaudspeakerPreferences(Context context) {
+        preferences = context.getSharedPreferences(PREFERENCES_FILE_KEY, Context.MODE_PRIVATE);
+    }
 
     public Object getValue(String key, Object defaultValue) {
-        synchronized (lock) {
-            return preferences.getOrDefault(key, defaultValue);
+        // Since SharedPreferences does not directly support null, we need to handle it.
+        // Checking if the preference exists. If it does not, return the default value (which can be null).
+        if (!preferences.contains(key)) {
+            return defaultValue;
         }
+
+        // Assuming all values are stored as strings, given the limitations of SharedPreferences.
+        // Implement type-specific logic if needed.
+        return preferences.getString(key, defaultValue != null ? defaultValue.toString() : null);
     }
 
     public void setValue(String key, Object value) {
-        synchronized (lock) {
-            preferences.put(key, value);
-        }
+        SharedPreferences.Editor editor = preferences.edit();
+        // Similar to the getValue method, checks for specific data types can be implemented.
+        // For simplicity, let's convert everything to String.
+        editor.putString(key, value.toString());
+        editor.apply();
     }
 
-    public void clear(List<String> except) {
-        synchronized (lock) {
-            preferences.keySet().retainAll(except);
+    public void clear(List<String> exceptKeys) {
+        SharedPreferences.Editor editor = preferences.edit();
+        for (String key : preferences.getAll().keySet()) {
+            if (!exceptKeys.contains(key)) {
+                editor.remove(key);
+            }
         }
+        editor.apply();
     }
 
     public void remove(String key) {
-        synchronized (lock) {
-            preferences.remove(key);
-        }
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.remove(key);
+        editor.apply();
     }
 
-    public Map<String, Object> getAll() {
-        synchronized (lock) {
-            return preferences.entrySet().stream().filter(entry -> !ALL_INTERNAL_KEYS.contains(entry.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        }
+    public Map<String, ?> getAll() {
+        // Filter out internal keys
+        Map<String, ?> allEntries = preferences.getAll();
+        allEntries.keySet().removeAll(ALL_INTERNAL_KEYS);
+        return allEntries;
     }
 }
