@@ -35,7 +35,7 @@ public class LaudspeakerApi {
         LaudspeakerBatchEvent batch = new LaudspeakerBatchEvent(events);
         batch.setSentAt(config.getDateProvider().currentDate());
 
-        Request request = makeRequest(getTheHost() + "/events", outputStream -> {
+        Request request = makeRequest(getTheHost() + "/events/batch/", outputStream -> {
             OutputStreamWriter writer = new OutputStreamWriter(outputStream);
             config.getSerializer().toJson(batch, writer);
             writer.flush();
