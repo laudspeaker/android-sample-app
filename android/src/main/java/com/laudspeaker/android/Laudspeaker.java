@@ -1,6 +1,20 @@
 package com.laudspeaker.android;
 
+import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,7 +25,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
-public class Laudspeaker {
+public class Laudspeaker extends FirebaseMessagingService {
+    private static int notificationIconResId = com.google.android.gms.base.R.drawable.common_google_signin_btn_icon_dark; // Default icon in the library
     private final ExecutorService queueExecutor = Executors.newSingleThreadScheduledExecutor(new LaudspeakerThreadFactory("LaudspeakerQueueThread"));
     private final Object setupLock = new Object();
     private final Object customerIdLock = new Object();
@@ -60,6 +75,14 @@ public class Laudspeaker {
                 config.getLogger().log("Setup failed: " + e);
             }
         }
+    }
+
+    public void setNotificationIcon(int resId) {
+        notificationIconResId = resId;
+    }
+
+    public int getNotificationIconResId() {
+        return notificationIconResId;
     }
 
     public String getCustomerId() {
@@ -297,6 +320,61 @@ public class Laudspeaker {
             queue.clear();
         }
     }
+
+    @Override
+    public void onMessageReceived(RemoteMessage remoteMessage) {
+        if (remoteMessage.getData().size() > 0) {
+            Map<String, String> data = remoteMessage.getData();
+            handleDataMessage(data);
+        }
+
+        if (remoteMessage.getNotification() != null) {
+            String messageBody = remoteMessage.getNotification().getBody();
+            handleNotification(messageBody);
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "My Notification Channel";
+            String description = "Channel description";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel("CHANNEL_ID", name, importance);
+            channel.setDescription(description);
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+
+    /*
+    WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
+     */
+    private void handleDataMessage(Map<String, String> data) {
+        createNotificationChannel();
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(data.get("title")).setContentText(data.get("body")).setPriority(NotificationCompat.PRIORITY_MAX);
+
+        Intent intent = new Intent(this, Laudspeaker.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        builder.setContentIntent(pendingIntent);
+        builder.setAutoCancel(true);
+
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+
+        int notificationId = (int) System.currentTimeMillis();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        notificationManager.notify(notificationId, builder.build());
+    }
+
+    /*
+    WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
+     */
+    private void handleNotification(String messageBody) {
+        System.out.println("Got a notification message:" + messageBody.toString());
+    }
+
 
     // Define a callback interface
     public interface FcmTokenCallback {
