@@ -16,6 +16,10 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
+import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -350,6 +354,17 @@ public class Laudspeaker extends FirebaseMessagingService {
     WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
      */
     private void handleDataMessage(Map<String, String> data) {
+
+        Object quietHours = data.get("quietHours");
+
+        String utcStartTime = convertTimeToUTC(quietHours.start, quietHours.timeZone);
+        String utcEndTime = convertTimeToUTC(quietHours.end, quietHours.timeZone);
+
+        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+        String utcNowString = now.format(formatter);
+
+        boolean isQuietHour = isWithinInterval(utcStartTime, utcEndTime, utcNowString);
         createNotificationChannel();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(data.get("title")).setContentText(data.get("body")).setPriority(NotificationCompat.PRIORITY_MAX);
@@ -366,6 +381,27 @@ public class Laudspeaker extends FirebaseMessagingService {
             return;
         }
         notificationManager.notify(notificationId, builder.build());
+    }
+
+    private static String convertTimeToUTC(String localTime, int utcOffsetMinutes) {
+        // This method should convert local time to UTC based on the utcOffsetMinutes.
+        // Placeholder implementation. The real implementation will depend on how the times are represented.
+        LocalTime time = LocalTime.parse(localTime);
+        return time.minusMinutes(utcOffsetMinutes).format(DateTimeFormatter.ofPattern("HH:mm"));
+    }
+
+    private static boolean isWithinInterval(String startTime, String endTime, String currentTime) {
+        // This method checks if currentTime is within the interval [startTime, endTime].
+        // Note: This simplistic implementation may not handle over-midnight spans correctly.
+        LocalTime start = LocalTime.parse(startTime);
+        LocalTime end = LocalTime.parse(endTime);
+        LocalTime current = LocalTime.parse(currentTime);
+
+        if (start.isBefore(end)) {
+            return !current.isBefore(start) && !current.isAfter(end);
+        } else { // Handles the over-midnight case
+            return !current.isBefore(start) || !current.isAfter(end);
+        }
     }
 
     /*
