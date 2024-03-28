@@ -15,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import com.google.gson.Gson;
 
 import java.time.LocalTime;
 import java.time.ZoneOffset;
@@ -49,7 +50,25 @@ public class Laudspeaker extends FirebaseMessagingService {
     public static <T extends LaudspeakerConfig> Laudspeaker with(T config) {
         Laudspeaker instance = new Laudspeaker(); // Assuming there's a default constructor or appropriate constructor available
         instance.setup(config);
-        instance.sendFcmTokenAsync();
+        instance.getFcmTokenAsync(new FcmTokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                if (token != null && !token.trim().isEmpty() && config != null) {
+                    config.getLogger().log("Retrieved FCM token: " + token);
+                } else {
+                    if (config != null) {
+                        config.getLogger().log("getFCMToken called but token was empty.");
+                    }
+                }
+            }
+
+            @Override
+            public void onError(Exception exception) {
+                if (config != null) {
+                    config.getLogger().log("Failed to fetch FCM token: " + exception.toString());
+                }
+            }
+        });
         return instance;
     }
 
@@ -66,6 +85,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 }
 
                 this.memoryPreferences = config.getCachePreferences();
+                String oldHost = this.memoryPreferences.getValue();
                 LaudspeakerApi api = new LaudspeakerApi(config);
                 this.queue = new LaudspeakerQueue(config, api, LaudspeakerApiEndpoint.EVENT, config.getStoragePrefix(), queueExecutor);
 
@@ -148,7 +168,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                         if (!task.isSuccessful()) {
                             Exception e = task.getException();
                             config.getLogger().log("Fetching FCM registration token failed: " + e);
-                            callback.onError(e);
+//                            callback.onError(e);
                         } else {
                             // Assuming the token is successfully retrieved and not null
                             fcmTokenCache = task.getResult();
@@ -184,9 +204,12 @@ public class Laudspeaker extends FirebaseMessagingService {
     }
 
     public void capture(String event, Map<String, Object> properties) {
+        System.out.println("Inside capture call.");
 
         try {
             if (!isEnabled()) {
+                System.out.println("Capture not enabled.");
+                config.getLogger().log("capture call not allowed, Laudspeaker instance not enabled.");
                 return;
             }
 
@@ -354,17 +377,35 @@ public class Laudspeaker extends FirebaseMessagingService {
     WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
      */
     private void handleDataMessage(Map<String, String> data) {
+        System.out.println("Got a data message:" + data.toString());
+        boolean isQuietHour = false;
 
-        Object quietHours = data.get("quietHours");
+        Gson gson = new Gson();
+        QuietHours quietHours = gson.fromJson(data.get("quietHours"), QuietHours.class);
 
-        String utcStartTime = convertTimeToUTC(quietHours.start, quietHours.timeZone);
-        String utcEndTime = convertTimeToUTC(quietHours.end, quietHours.timeZone);
+        System.out.println(quietHours);
 
-        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-        String utcNowString = now.format(formatter);
+        if (quietHours != null) {
+            String utcStartTime = convertTimeToUTC(quietHours.getStartTime(), 0);
+            String utcEndTime = convertTimeToUTC(quietHours.getEndTime(), 0);
 
-        boolean isQuietHour = isWithinInterval(utcStartTime, utcEndTime, utcNowString);
+            ZonedDateTime now = ZonedDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+            String utcNowString = now.format(formatter);
+
+            isQuietHour = isWithinInterval(utcStartTime, utcEndTime, utcNowString);
+        }
+
+        if (isQuietHour) return;
+        System.out.println("It's not quiet hours!!!" + data.toString());
+
+        Map<String, Object> deliveryMessage = new HashMap<>();
+        deliveryMessage.put("customerID", System.currentTimeMillis());
+        deliveryMessage.put("stepID", System.currentTimeMillis());
+        deliveryMessage.put("templateID", System.currentTimeMillis());
+        deliveryMessage.put("workspaceID", System.currentTimeMillis());
+
+        this.capture("$delivered", deliveryMessage);
         createNotificationChannel();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(data.get("title")).setContentText(data.get("body")).setPriority(NotificationCompat.PRIORITY_MAX);

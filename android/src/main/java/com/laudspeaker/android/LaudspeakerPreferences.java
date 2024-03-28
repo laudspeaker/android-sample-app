@@ -16,7 +16,10 @@ public class LaudspeakerPreferences {
     public static final String FCM_TOKEN = "fcm_token";
     public static final String VERSION = "version";
     public static final String BUILD = "build";
-    public static final Set<String> ALL_INTERNAL_KEYS = Set.of(CUSTOMER_ID, PRIMARY_KEY, FCM_TOKEN, VERSION, BUILD);
+    public static final String HOST = "";
+    public static final String API_KEY = "";
+
+    public static final Set<String> ALL_INTERNAL_KEYS = Set.of(CUSTOMER_ID, PRIMARY_KEY, FCM_TOKEN, VERSION, BUILD, HOST, API_KEY);
     private final SharedPreferences preferences;
 
     public LaudspeakerPreferences(Context context) {

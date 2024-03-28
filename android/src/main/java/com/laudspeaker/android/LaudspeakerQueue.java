@@ -180,6 +180,7 @@ public class LaudspeakerQueue {
         for (File file : files) {
             try (FileReader fileReader = new FileReader(file)) {
                 LaudspeakerEvent event = config.getSerializer().fromJson(fileReader, LaudspeakerEvent.class);
+                event.setFCMToken((String) config.getCachePreferences().getValue(LaudspeakerPreferences.FCM_TOKEN,null));
                 if (event != null) {
                     events.add(event);
                 }

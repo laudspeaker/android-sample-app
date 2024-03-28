@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 
 public class LaudspeakerConfig {
 
+    public static final String defaultHost = "https://laudspeaker.com";
     private final String apiKey;
     private String host = defaultHost;
     private boolean debug = false;
@@ -11,7 +12,6 @@ public class LaudspeakerConfig {
     private int maxQueueSize = 1000;
     private int maxBatchSize = 50;
     private int flushIntervalSeconds = 1;
-
     // Internal usage
     private LaudspeakerLogger logger = new LaudspeakerLogger(this);
     private Gson serializer = new Gson();
@@ -23,8 +23,6 @@ public class LaudspeakerConfig {
     private LaudspeakerNetworkStatus networkStatus = null;
     private LaudspeakerDateProvider dateProvider = new LaudspeakerDateProvider();
     private LaudspeakerPropertiesSanitizer sanitizer;
-
-    public static final String defaultHost = "https://laudspeaker.com";
 
     public LaudspeakerConfig(String apiKey) {
         this.apiKey = apiKey;
@@ -53,16 +51,16 @@ public class LaudspeakerConfig {
         return host;
     }
 
+    public void setHost(String host) {
+        this.host = host;
+    }
+
     public String getUserAgent() {
         return userAgent;
     }
 
     public int getFlushAt() {
         return flushAt;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
     }
 
     public boolean isDebug() {
@@ -79,6 +77,10 @@ public class LaudspeakerConfig {
         return logger;
     }
 
+    public void setLogger(LaudspeakerLogger logger) {
+        this.logger = logger;
+    }
+
     public int getMaxQueueSize() {
         return maxQueueSize;
     }
@@ -91,16 +93,16 @@ public class LaudspeakerConfig {
         return networkStatus;
     }
 
-    public void setLogger(LaudspeakerLogger logger) {
-        this.logger = logger;
-    }
-
-    public void setCachePreferences(LaudspeakerPreferences cachePreferences) {
-        this.cachePreferences = cachePreferences;
+    public void setNetworkStatus(LaudspeakerNetworkStatus networkStatus) {
+        this.networkStatus = networkStatus;
     }
 
     public String getStoragePrefix() {
         return storagePrefix;
+    }
+
+    public void setStoragePrefix(String storagePrefix) {
+        this.storagePrefix = storagePrefix;
     }
 
     public Gson getSerializer() {
@@ -109,10 +111,6 @@ public class LaudspeakerConfig {
 
     public LaudspeakerPropertiesSanitizer getPropertiesSanitizer() {
         return sanitizer;
-    }
-
-    public void setNetworkStatus(LaudspeakerNetworkStatus networkStatus) {
-        this.networkStatus = networkStatus;
     }
 
     public void setSdkVersion(String sdkVersion) {
@@ -127,7 +125,7 @@ public class LaudspeakerConfig {
         return cachePreferences;
     }
 
-    public void setStoragePrefix(String storagePrefix) {
-        this.storagePrefix = storagePrefix;
+    public void setCachePreferences(LaudspeakerPreferences cachePreferences) {
+        this.cachePreferences = cachePreferences;
     }
 }

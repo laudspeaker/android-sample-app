@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
-        LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig("aE60OKCiJ5v1aX1WSw7tag9KdGwx0uaZOoqUn06g", "https://d3083b0b98a1.ngrok.app");
+        LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig("s56LGOXy73JzXIFwD9RcU3hGcIk0mJ6aHDAJc3K9", "https://5d9bf67d7f03.ngrok.app");
         Laudspeaker laudspeaker = LaudspeakerAndroid.with(this, config);
         laudspeaker.setNotificationIcon(R.drawable.ic_launcher_background);
 
