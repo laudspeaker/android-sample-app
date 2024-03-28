@@ -3,15 +3,19 @@ package com.laudspeaker.android;
 import com.google.gson.Gson;
 
 public class LaudspeakerConfig {
-
-    private final String apiKey;
+    private Class<?> targetActivityClass; // Target Activity class reference
+    private boolean updatedClass = false;
+    private boolean updatedHost = false;
+    private boolean updatedKey = false;
+    public static final String defaultHost = "https://laudspeaker.com";
+    public static final String defaultKey = "";
+    private String apiKey = defaultKey;
     private String host = defaultHost;
     private boolean debug = false;
     private int flushAt = 1;
     private int maxQueueSize = 1000;
     private int maxBatchSize = 50;
     private int flushIntervalSeconds = 1;
-
     // Internal usage
     private LaudspeakerLogger logger = new LaudspeakerLogger(this);
     private Gson serializer = new Gson();
@@ -24,21 +28,39 @@ public class LaudspeakerConfig {
     private LaudspeakerDateProvider dateProvider = new LaudspeakerDateProvider();
     private LaudspeakerPropertiesSanitizer sanitizer;
 
-    public static final String defaultHost = "https://laudspeaker.com";
-
     public LaudspeakerConfig(String apiKey) {
         this.apiKey = apiKey;
     }
 
-    public LaudspeakerConfig(String apiKey, String host) {
+    public LaudspeakerConfig(String apiKey, String host, Class<?> targetActivityClass, boolean updatedKey, boolean updatedHost, boolean updatedClass) {
         this.apiKey = apiKey;
         this.host = host;
+        this.targetActivityClass = targetActivityClass;
+        this.updatedHost = updatedHost;
+        this.updatedClass = updatedClass;
+        this.updatedKey = updatedKey;
     }
 
     // Getters and Setters for all properties
 
+    public boolean getUpdatedHost() {
+        return this.updatedHost;
+    }
+
+    public boolean getUpdatedKey() {
+        return this.updatedKey;
+    }
+
+    public boolean getUpdatedClass() {
+        return this.updatedClass;
+    }
+
     public String getApiKey() {
         return apiKey;
+    }
+
+    public Class<?> getTargetActivityClass() {
+        return targetActivityClass;
     }
 
     public LaudspeakerDateProvider getDateProvider() {
@@ -53,16 +75,16 @@ public class LaudspeakerConfig {
         return host;
     }
 
+    public void setHost(String host) {
+        this.host = host;
+    }
+
     public String getUserAgent() {
         return userAgent;
     }
 
     public int getFlushAt() {
         return flushAt;
-    }
-
-    public void setHost(String host) {
-        this.host = host;
     }
 
     public boolean isDebug() {
@@ -79,6 +101,10 @@ public class LaudspeakerConfig {
         return logger;
     }
 
+    public void setLogger(LaudspeakerLogger logger) {
+        this.logger = logger;
+    }
+
     public int getMaxQueueSize() {
         return maxQueueSize;
     }
@@ -91,16 +117,16 @@ public class LaudspeakerConfig {
         return networkStatus;
     }
 
-    public void setLogger(LaudspeakerLogger logger) {
-        this.logger = logger;
-    }
-
-    public void setCachePreferences(LaudspeakerPreferences cachePreferences) {
-        this.cachePreferences = cachePreferences;
+    public void setNetworkStatus(LaudspeakerNetworkStatus networkStatus) {
+        this.networkStatus = networkStatus;
     }
 
     public String getStoragePrefix() {
         return storagePrefix;
+    }
+
+    public void setStoragePrefix(String storagePrefix) {
+        this.storagePrefix = storagePrefix;
     }
 
     public Gson getSerializer() {
@@ -109,10 +135,6 @@ public class LaudspeakerConfig {
 
     public LaudspeakerPropertiesSanitizer getPropertiesSanitizer() {
         return sanitizer;
-    }
-
-    public void setNetworkStatus(LaudspeakerNetworkStatus networkStatus) {
-        this.networkStatus = networkStatus;
     }
 
     public void setSdkVersion(String sdkVersion) {
@@ -127,7 +149,7 @@ public class LaudspeakerConfig {
         return cachePreferences;
     }
 
-    public void setStoragePrefix(String storagePrefix) {
-        this.storagePrefix = storagePrefix;
+    public void setCachePreferences(LaudspeakerPreferences cachePreferences) {
+        this.cachePreferences = cachePreferences;
     }
 }

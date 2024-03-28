@@ -1,16 +1,16 @@
 package com.laudspeaker.android;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.util.List;
+
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okio.BufferedSink;
-
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.util.List;
 
 public class LaudspeakerApi {
     private final LaudspeakerConfig config;
@@ -24,10 +24,10 @@ public class LaudspeakerApi {
     }
 
     private String getTheHost() {
-        if (config.getHost().endsWith("/")) {
-            return config.getHost().substring(0, config.getHost().length() - 1);
+        if (((String) config.getCachePreferences().getValue(LaudspeakerPreferences.HOST, null)).endsWith("/")) {
+            return ((String) config.getCachePreferences().getValue(LaudspeakerPreferences.HOST, null)).substring(0, ((String) config.getCachePreferences().getValue(LaudspeakerPreferences.HOST, null)).length() - 1);
         } else {
-            return config.getHost();
+            return (String) config.getCachePreferences().getValue(LaudspeakerPreferences.HOST, null);
         }
     }
 
@@ -62,7 +62,7 @@ public class LaudspeakerApi {
             }
         };
 
-        return new Request.Builder().url(url).header("Authorization", "Api-Key " + config.getApiKey()).header("User-Agent", config.getUserAgent()).post(requestBody).build();
+        return new Request.Builder().url(url).header("Authorization", "Api-Key " + (String) config.getCachePreferences().getValue(LaudspeakerPreferences.API_KEY, null)).header("User-Agent", config.getUserAgent()).post(requestBody).build();
     }
 
     @FunctionalInterface

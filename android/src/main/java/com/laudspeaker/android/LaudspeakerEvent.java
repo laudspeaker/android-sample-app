@@ -9,12 +9,10 @@ public class LaudspeakerEvent {
     Event name as a string.
      */
     private final String event;
-
     /*
     ID of the laudspeaker customer
      */
     private final String correlationKey = "_id";
-
     private final String correlationValue;
     /*
     Event properties.
@@ -28,8 +26,8 @@ public class LaudspeakerEvent {
     Event ID
      */
     private final UUID uuid;
-
-    private final String source = "mobile";
+    private String source;
+    private FCMToken $fcm;
 
 
     public LaudspeakerEvent(String event, String id, Map<String, Object> payload) {
@@ -59,5 +57,24 @@ public class LaudspeakerEvent {
 
     public UUID getEventId() {
         return uuid;
+    }
+
+    public void setFCMToken(String token) {
+        this.$fcm = new FCMToken(token);
+    }
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public class FCMToken {
+        private final String androidDeviceToken;
+
+        private FCMToken(String token) {
+            this.androidDeviceToken = token;
+        }
     }
 }

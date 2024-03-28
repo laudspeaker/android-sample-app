@@ -1,7 +1,28 @@
 package com.laudspeaker.android;
 
-import com.google.firebase.messaging.FirebaseMessaging;
+import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
+import com.google.gson.Gson;
+
+import java.io.File;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -11,7 +32,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
-public class Laudspeaker {
+public class Laudspeaker extends FirebaseMessagingService {
+    private static int notificationIconResId = com.google.android.gms.base.R.drawable.common_google_signin_btn_icon_dark; // Default icon in the library
     private final ExecutorService queueExecutor = Executors.newSingleThreadScheduledExecutor(new LaudspeakerThreadFactory("LaudspeakerQueueThread"));
     private final Object setupLock = new Object();
     private final Object customerIdLock = new Object();
@@ -30,7 +52,25 @@ public class Laudspeaker {
     public static <T extends LaudspeakerConfig> Laudspeaker with(T config) {
         Laudspeaker instance = new Laudspeaker(); // Assuming there's a default constructor or appropriate constructor available
         instance.setup(config);
-        instance.sendFcmTokenAsync();
+        instance.getFcmTokenAsync(new FcmTokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                if (token != null && !token.trim().isEmpty() && config != null) {
+                    config.getLogger().log("Retrieved FCM token: " + token);
+                } else {
+                    if (config != null) {
+                        config.getLogger().log("getFCMToken called but token was empty.");
+                    }
+                }
+            }
+
+            @Override
+            public void onError(Exception exception) {
+                if (config != null) {
+                    config.getLogger().log("Failed to fetch FCM token: " + exception.toString());
+                }
+            }
+        });
         return instance;
     }
 
@@ -52,6 +92,16 @@ public class Laudspeaker {
 
                 this.config = config;
 
+                if (config.getUpdatedHost()) {
+                    this.memoryPreferences.setValue(LaudspeakerPreferences.HOST, config.getHost());
+                }
+                if (config.getUpdatedKey()) {
+                    this.memoryPreferences.setValue(LaudspeakerPreferences.API_KEY, config.getApiKey());
+                }
+                if (config.getUpdatedClass()) {
+                    this.memoryPreferences.setTargetActivityClass(config.getTargetActivityClass());
+                }
+
                 this.enabled = true;
 
                 queue.start();
@@ -59,6 +109,26 @@ public class Laudspeaker {
             } catch (Throwable e) {
                 config.getLogger().log("Setup failed: " + e);
             }
+        }
+    }
+
+    public void setNotificationIcon(int resId) {
+        notificationIconResId = resId;
+    }
+
+    public int getNotificationIconResId() {
+        return notificationIconResId;
+    }
+
+    public void handlePushOpened(Intent intent) {
+        if (intent != null && intent.getExtras() != null) {
+            Map<String, Object> openMessage = new HashMap<>();
+            openMessage.put("customerID", intent.getStringExtra("customerID"));
+            openMessage.put("stepID", intent.getStringExtra("stepID"));
+            openMessage.put("templateID", intent.getStringExtra("templateID"));
+            openMessage.put("messageID", intent.getStringExtra("messageID"));
+            openMessage.put("workspaceID", intent.getStringExtra("workspaceID"));
+            this.capture("$opened", openMessage);
         }
     }
 
@@ -121,7 +191,7 @@ public class Laudspeaker {
                         if (!task.isSuccessful()) {
                             Exception e = task.getException();
                             config.getLogger().log("Fetching FCM registration token failed: " + e);
-                            callback.onError(e);
+//                            callback.onError(e);
                         } else {
                             // Assuming the token is successfully retrieved and not null
                             fcmTokenCache = task.getResult();
@@ -157,9 +227,9 @@ public class Laudspeaker {
     }
 
     public void capture(String event, Map<String, Object> properties) {
-
         try {
             if (!isEnabled()) {
+                config.getLogger().log("capture call not allowed, Laudspeaker instance not enabled.");
                 return;
             }
 
@@ -297,6 +367,128 @@ public class Laudspeaker {
             queue.clear();
         }
     }
+
+    @Override
+    public void onMessageReceived(RemoteMessage remoteMessage) {
+        if (remoteMessage.getData().size() > 0) {
+            Map<String, String> data = remoteMessage.getData();
+            handleDataMessage(data);
+        }
+
+        if (remoteMessage.getNotification() != null) {
+            String messageBody = remoteMessage.getNotification().getBody();
+            handleNotification(messageBody);
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "My Notification Channel";
+            String description = "Channel description";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel("CHANNEL_ID", name, importance);
+            channel.setDescription(description);
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+
+    /*
+    WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
+     */
+    private void handleDataMessage(Map<String, String> data) {
+        boolean isQuietHour = false;
+
+        Gson gson = new Gson();
+        QuietHours quietHours = gson.fromJson(data.get("quietHours"), QuietHours.class);
+
+        System.out.println(quietHours);
+
+        if (quietHours != null) {
+            String utcStartTime = convertTimeToUTC(quietHours.getStartTime(), 0);
+            String utcEndTime = convertTimeToUTC(quietHours.getEndTime(), 0);
+
+            ZonedDateTime now = ZonedDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+            String utcNowString = now.format(formatter);
+
+            isQuietHour = isWithinInterval(utcStartTime, utcEndTime, utcNowString);
+        }
+
+        if (isQuietHour) return;
+
+        Map<String, Object> deliveryMessage = new HashMap<>();
+        deliveryMessage.put("customerID", data.get("customerID"));
+        deliveryMessage.put("stepID", data.get("stepID"));
+        deliveryMessage.put("templateID", data.get("templateID"));
+        deliveryMessage.put("messageID", data.get("messageID"));
+        deliveryMessage.put("workspaceID", data.get("workspaceID"));
+
+        Context context = this.getApplicationContext();
+        LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
+        config.setLogger(new LaudspeakerLogger(config));
+        File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
+        System.out.println("The path for the autoinstance is " + path.toString());
+        config.setStoragePrefix(config.getStoragePrefix() == null ? path.getAbsolutePath() : config.getStoragePrefix());
+        LaudspeakerPreferences preferences = config.getCachePreferences() == null ? new LaudspeakerPreferences(context) : config.getCachePreferences();
+        config.setCachePreferences(preferences);
+        config.setNetworkStatus(config.getNetworkStatus() == null ? new LaudspeakerNetworkStatus(context) : config.getNetworkStatus());
+        config.setSdkVersion("1");
+        config.setSdkName("laudspeaker-android");
+        this.setup(config);
+        this.capture("$delivered", deliveryMessage);
+
+        createNotificationChannel();
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(data.get("title")).setContentText(data.get("body")).setPriority(NotificationCompat.PRIORITY_MAX);
+
+        Intent intent = new Intent(this, this.config.getCachePreferences().getTargetActivityClass());
+        intent.putExtra("customerID", data.get("customerID"));
+        intent.putExtra("stepID", data.get("stepID"));
+        intent.putExtra("templateID", data.get("templateID"));
+        intent.putExtra("messageID", data.get("messageID"));
+        intent.putExtra("workspaceID", data.get("workspaceID"));
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        builder.setContentIntent(pendingIntent);
+        builder.setAutoCancel(true);
+
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+
+        int notificationId = (int) System.currentTimeMillis();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        notificationManager.notify(notificationId, builder.build());
+    }
+
+    private static String convertTimeToUTC(String localTime, int utcOffsetMinutes) {
+        // This method should convert local time to UTC based on the utcOffsetMinutes.
+        // Placeholder implementation. The real implementation will depend on how the times are represented.
+        LocalTime time = LocalTime.parse(localTime);
+        return time.minusMinutes(utcOffsetMinutes).format(DateTimeFormatter.ofPattern("HH:mm"));
+    }
+
+    private static boolean isWithinInterval(String startTime, String endTime, String currentTime) {
+        // This method checks if currentTime is within the interval [startTime, endTime].
+        // Note: This simplistic implementation may not handle over-midnight spans correctly.
+        LocalTime start = LocalTime.parse(startTime);
+        LocalTime end = LocalTime.parse(endTime);
+        LocalTime current = LocalTime.parse(currentTime);
+
+        if (start.isBefore(end)) {
+            return !current.isBefore(start) && !current.isAfter(end);
+        } else { // Handles the over-midnight case
+            return !current.isBefore(start) || !current.isAfter(end);
+        }
+    }
+
+    /*
+    WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
+     */
+    private void handleNotification(String messageBody) {
+        System.out.println("Got a notification message:" + messageBody.toString());
+    }
+
 
     // Define a callback interface
     public interface FcmTokenCallback {

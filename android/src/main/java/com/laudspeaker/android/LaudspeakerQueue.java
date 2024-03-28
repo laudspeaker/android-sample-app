@@ -13,6 +13,7 @@ import java.util.Date;
 import java.util.Deque;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -162,8 +163,7 @@ public class LaudspeakerQueue {
         try {
             batchEvents();
             retryCount = 0;
-        } catch (
-                Exception e) {
+        } catch (Exception e) {
             config.getLogger().log("Flushing failed: " + e.getMessage());
             retry = true;
             retryCount++;
@@ -181,6 +181,12 @@ public class LaudspeakerQueue {
             try (FileReader fileReader = new FileReader(file)) {
                 LaudspeakerEvent event = config.getSerializer().fromJson(fileReader, LaudspeakerEvent.class);
                 if (event != null) {
+                    event.setFCMToken((String) config.getCachePreferences().getValue(LaudspeakerPreferences.FCM_TOKEN, null));
+                    if (Objects.equals(event.getEvent(), "$delivered") || Objects.equals(event.getEvent(), "$opened")) {
+                        event.setSource("message");
+                    } else {
+                        event.setSource("mobile");
+                    }
                     events.add(event);
                 }
             } catch (Exception e) {

@@ -16,7 +16,10 @@ public class LaudspeakerPreferences {
     public static final String FCM_TOKEN = "fcm_token";
     public static final String VERSION = "version";
     public static final String BUILD = "build";
-    public static final Set<String> ALL_INTERNAL_KEYS = Set.of(CUSTOMER_ID, PRIMARY_KEY, FCM_TOKEN, VERSION, BUILD);
+    public static final String HOST = "host";
+    public static final String API_KEY = "api_key";
+    public static final String ACTIVITY_CLASS = "activity_class";
+    public static final Set<String> ALL_INTERNAL_KEYS = Set.of(CUSTOMER_ID, PRIMARY_KEY, FCM_TOKEN, VERSION, BUILD, HOST, API_KEY, ACTIVITY_CLASS);
     private final SharedPreferences preferences;
 
     public LaudspeakerPreferences(Context context) {
@@ -64,5 +67,26 @@ public class LaudspeakerPreferences {
         Map<String, ?> allEntries = preferences.getAll();
         allEntries.keySet().removeAll(ALL_INTERNAL_KEYS);
         return allEntries;
+    }
+
+    public void setTargetActivityClass(Class<?> targetActivityClass) {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString(ACTIVITY_CLASS, targetActivityClass.getName());
+        editor.apply();
+    }
+
+    // Method to retrieve the target activity class
+    public Class<?> getTargetActivityClass() {
+        String className = preferences.getString(ACTIVITY_CLASS, null);
+        if (className != null) {
+            try {
+                return Class.forName(className);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+                // Handle the error or return null
+                return null;
+            }
+        }
+        return null;
     }
 }
