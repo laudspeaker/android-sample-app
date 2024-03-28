@@ -26,7 +26,7 @@ public class LaudspeakerEvent {
     Event ID
      */
     private final UUID uuid;
-    private final String source = "mobile";
+    private String source;
     private FCMToken $fcm;
 
 
@@ -62,7 +62,13 @@ public class LaudspeakerEvent {
     public void setFCMToken(String token) {
         this.$fcm = new FCMToken(token);
     }
+    public void setSource(String source) {
+        this.source = source;
+    }
 
+    public String getSource() {
+        return source;
+    }
 
     public class FCMToken {
         private final String androidDeviceToken;

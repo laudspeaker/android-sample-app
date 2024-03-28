@@ -3,9 +3,13 @@ package com.laudspeaker.android;
 import com.google.gson.Gson;
 
 public class LaudspeakerConfig {
-
+    private Class<?> targetActivityClass; // Target Activity class reference
+    private boolean updatedClass = false;
+    private boolean updatedHost = false;
+    private boolean updatedKey = false;
     public static final String defaultHost = "https://laudspeaker.com";
-    private final String apiKey;
+    public static final String defaultKey = "";
+    private String apiKey = defaultKey;
     private String host = defaultHost;
     private boolean debug = false;
     private int flushAt = 1;
@@ -28,15 +32,35 @@ public class LaudspeakerConfig {
         this.apiKey = apiKey;
     }
 
-    public LaudspeakerConfig(String apiKey, String host) {
+    public LaudspeakerConfig(String apiKey, String host, Class<?> targetActivityClass, boolean updatedKey, boolean updatedHost, boolean updatedClass) {
         this.apiKey = apiKey;
         this.host = host;
+        this.targetActivityClass = targetActivityClass;
+        this.updatedHost = updatedHost;
+        this.updatedClass = updatedClass;
+        this.updatedKey = updatedKey;
     }
 
     // Getters and Setters for all properties
 
+    public boolean getUpdatedHost() {
+        return this.updatedHost;
+    }
+
+    public boolean getUpdatedKey() {
+        return this.updatedKey;
+    }
+
+    public boolean getUpdatedClass() {
+        return this.updatedClass;
+    }
+
     public String getApiKey() {
         return apiKey;
+    }
+
+    public Class<?> getTargetActivityClass() {
+        return targetActivityClass;
     }
 
     public LaudspeakerDateProvider getDateProvider() {

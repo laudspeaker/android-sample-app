@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -17,6 +18,7 @@ import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import com.google.gson.Gson;
 
+import java.io.File;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -85,11 +87,20 @@ public class Laudspeaker extends FirebaseMessagingService {
                 }
 
                 this.memoryPreferences = config.getCachePreferences();
-                String oldHost = this.memoryPreferences.getValue();
                 LaudspeakerApi api = new LaudspeakerApi(config);
                 this.queue = new LaudspeakerQueue(config, api, LaudspeakerApiEndpoint.EVENT, config.getStoragePrefix(), queueExecutor);
 
                 this.config = config;
+
+                if (config.getUpdatedHost()) {
+                    this.memoryPreferences.setValue(LaudspeakerPreferences.HOST, config.getHost());
+                }
+                if (config.getUpdatedKey()) {
+                    this.memoryPreferences.setValue(LaudspeakerPreferences.API_KEY, config.getApiKey());
+                }
+                if (config.getUpdatedClass()) {
+                    this.memoryPreferences.setTargetActivityClass(config.getTargetActivityClass());
+                }
 
                 this.enabled = true;
 
@@ -107,6 +118,18 @@ public class Laudspeaker extends FirebaseMessagingService {
 
     public int getNotificationIconResId() {
         return notificationIconResId;
+    }
+
+    public void handlePushOpened(Intent intent) {
+        if (intent != null && intent.getExtras() != null) {
+            Map<String, Object> openMessage = new HashMap<>();
+            openMessage.put("customerID", intent.getStringExtra("customerID"));
+            openMessage.put("stepID", intent.getStringExtra("stepID"));
+            openMessage.put("templateID", intent.getStringExtra("templateID"));
+            openMessage.put("messageID", intent.getStringExtra("messageID"));
+            openMessage.put("workspaceID", intent.getStringExtra("workspaceID"));
+            this.capture("$opened", openMessage);
+        }
     }
 
     public String getCustomerId() {
@@ -204,11 +227,8 @@ public class Laudspeaker extends FirebaseMessagingService {
     }
 
     public void capture(String event, Map<String, Object> properties) {
-        System.out.println("Inside capture call.");
-
         try {
             if (!isEnabled()) {
-                System.out.println("Capture not enabled.");
                 config.getLogger().log("capture call not allowed, Laudspeaker instance not enabled.");
                 return;
             }
@@ -377,7 +397,6 @@ public class Laudspeaker extends FirebaseMessagingService {
     WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
      */
     private void handleDataMessage(Map<String, String> data) {
-        System.out.println("Got a data message:" + data.toString());
         boolean isQuietHour = false;
 
         Gson gson = new Gson();
@@ -397,20 +416,38 @@ public class Laudspeaker extends FirebaseMessagingService {
         }
 
         if (isQuietHour) return;
-        System.out.println("It's not quiet hours!!!" + data.toString());
 
         Map<String, Object> deliveryMessage = new HashMap<>();
-        deliveryMessage.put("customerID", System.currentTimeMillis());
-        deliveryMessage.put("stepID", System.currentTimeMillis());
-        deliveryMessage.put("templateID", System.currentTimeMillis());
-        deliveryMessage.put("workspaceID", System.currentTimeMillis());
+        deliveryMessage.put("customerID", data.get("customerID"));
+        deliveryMessage.put("stepID", data.get("stepID"));
+        deliveryMessage.put("templateID", data.get("templateID"));
+        deliveryMessage.put("messageID", data.get("messageID"));
+        deliveryMessage.put("workspaceID", data.get("workspaceID"));
 
+        Context context = this.getApplicationContext();
+        LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
+        config.setLogger(new LaudspeakerLogger(config));
+        File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
+        System.out.println("The path for the autoinstance is " + path.toString());
+        config.setStoragePrefix(config.getStoragePrefix() == null ? path.getAbsolutePath() : config.getStoragePrefix());
+        LaudspeakerPreferences preferences = config.getCachePreferences() == null ? new LaudspeakerPreferences(context) : config.getCachePreferences();
+        config.setCachePreferences(preferences);
+        config.setNetworkStatus(config.getNetworkStatus() == null ? new LaudspeakerNetworkStatus(context) : config.getNetworkStatus());
+        config.setSdkVersion("1");
+        config.setSdkName("laudspeaker-android");
+        this.setup(config);
         this.capture("$delivered", deliveryMessage);
+
         createNotificationChannel();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(data.get("title")).setContentText(data.get("body")).setPriority(NotificationCompat.PRIORITY_MAX);
 
-        Intent intent = new Intent(this, Laudspeaker.class);
+        Intent intent = new Intent(this, this.config.getCachePreferences().getTargetActivityClass());
+        intent.putExtra("customerID", data.get("customerID"));
+        intent.putExtra("stepID", data.get("stepID"));
+        intent.putExtra("templateID", data.get("templateID"));
+        intent.putExtra("messageID", data.get("messageID"));
+        intent.putExtra("workspaceID", data.get("workspaceID"));
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         builder.setContentIntent(pendingIntent);
         builder.setAutoCancel(true);
