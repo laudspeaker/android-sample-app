@@ -442,7 +442,7 @@ public class Laudspeaker extends FirebaseMessagingService {
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(data.get("title")).setContentText(data.get("body")).setPriority(NotificationCompat.PRIORITY_MAX);
 
-        Intent intent = new Intent(this, this.config.getCachePreferences().getTargetActivityClass());
+        Intent intent = new Intent();//, this.config.getCachePreferences().getTargetActivityClass());
         intent.putExtra("customerID", data.get("customerID"));
         intent.putExtra("stepID", data.get("stepID"));
         intent.putExtra("templateID", data.get("templateID"));
