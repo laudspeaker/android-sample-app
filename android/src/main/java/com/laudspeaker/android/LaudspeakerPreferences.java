@@ -70,9 +70,11 @@ public class LaudspeakerPreferences {
     }
 
     public void setTargetActivityClass(Class<?> targetActivityClass) {
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putString(ACTIVITY_CLASS, targetActivityClass.getName());
-        editor.apply();
+        if (targetActivityClass != null) {
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putString(ACTIVITY_CLASS, targetActivityClass.getName());
+            editor.apply();
+        }
     }
 
     // Method to retrieve the target activity class
