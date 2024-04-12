@@ -9,7 +9,7 @@ import java.io.File;
 public class LaudspeakerAndroid {
     public static <T extends LaudspeakerAndroidConfig> Laudspeaker with(Context context, T config) {
         setAndroidConfig(context.getApplicationContext(), config);
-        return Laudspeaker.with(config);
+        return Laudspeaker.with(config, context);
     }
 
     private static <T extends LaudspeakerAndroidConfig> void setAndroidConfig(Context context, T config) {

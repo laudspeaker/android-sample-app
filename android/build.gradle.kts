@@ -29,7 +29,7 @@ android {
 }
 
 dependencies {
-
+    implementation("com.jakewharton.threetenabp:threetenabp:1.3.1")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("io.socket:socket.io-client:2.1.0")

@@ -19,10 +19,7 @@ import com.google.firebase.messaging.RemoteMessage;
 import com.google.gson.Gson;
 
 import java.io.File;
-import java.time.LocalTime;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +27,13 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import com.jakewharton.threetenabp.AndroidThreeTen;
+
+import org.threeten.bp.ZonedDateTime;
+import org.threeten.bp.ZoneId;
+import org.threeten.bp.format.DateTimeFormatter;
+import org.threeten.bp.LocalTime;
 
 
 public class Laudspeaker extends FirebaseMessagingService {
@@ -49,8 +53,9 @@ public class Laudspeaker extends FirebaseMessagingService {
     private String apiKey;
 
 
-    public static <T extends LaudspeakerConfig> Laudspeaker with(T config) {
+    public static <T extends LaudspeakerConfig> Laudspeaker with(T config, Context context) {
         Laudspeaker instance = new Laudspeaker(); // Assuming there's a default constructor or appropriate constructor available
+        AndroidThreeTen.init(context);
         instance.setup(config);
         instance.getFcmTokenAsync(new FcmTokenCallback() {
             @Override
@@ -356,6 +361,25 @@ public class Laudspeaker extends FirebaseMessagingService {
         }
     }
 
+    public boolean isQuietHours(Map<String, String> data) {
+        boolean isQuietHour = false;
+
+        Gson gson = new Gson();
+        QuietHours quietHours = gson.fromJson(data.get("quietHours"), QuietHours.class);
+
+        if (quietHours != null) {
+            String utcStartTime = convertTimeToUTC(quietHours.getStartTime(), 0);
+            String utcEndTime = convertTimeToUTC(quietHours.getEndTime(), 0);
+
+            ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+            String utcNowString = now.format(formatter);
+
+            isQuietHour = isWithinInterval(utcStartTime, utcEndTime, utcNowString);
+        }
+        return isQuietHour;
+    }
+
     public void reset() {
         if (!isEnabled()) {
             return;
@@ -393,30 +417,7 @@ public class Laudspeaker extends FirebaseMessagingService {
         }
     }
 
-    /*
-    WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
-     */
-    private void handleDataMessage(Map<String, String> data) {
-        boolean isQuietHour = false;
-
-        Gson gson = new Gson();
-        QuietHours quietHours = gson.fromJson(data.get("quietHours"), QuietHours.class);
-
-        System.out.println(quietHours);
-
-        if (quietHours != null) {
-            String utcStartTime = convertTimeToUTC(quietHours.getStartTime(), 0);
-            String utcEndTime = convertTimeToUTC(quietHours.getEndTime(), 0);
-
-            ZonedDateTime now = ZonedDateTime.now();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-            String utcNowString = now.format(formatter);
-
-            isQuietHour = isWithinInterval(utcStartTime, utcEndTime, utcNowString);
-        }
-
-        if (isQuietHour) return;
-
+    public void notifyDelivered(Map<String, String> data) {
         Map<String, Object> deliveryMessage = new HashMap<>();
         deliveryMessage.put("customerID", data.get("customerID"));
         deliveryMessage.put("stepID", data.get("stepID"));
@@ -424,25 +425,35 @@ public class Laudspeaker extends FirebaseMessagingService {
         deliveryMessage.put("messageID", data.get("messageID"));
         deliveryMessage.put("workspaceID", data.get("workspaceID"));
 
-        Context context = this.getApplicationContext();
-        LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
-        config.setLogger(new LaudspeakerLogger(config));
-        File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
-        System.out.println("The path for the autoinstance is " + path.toString());
-        config.setStoragePrefix(config.getStoragePrefix() == null ? path.getAbsolutePath() : config.getStoragePrefix());
-        LaudspeakerPreferences preferences = config.getCachePreferences() == null ? new LaudspeakerPreferences(context) : config.getCachePreferences();
-        config.setCachePreferences(preferences);
-        config.setNetworkStatus(config.getNetworkStatus() == null ? new LaudspeakerNetworkStatus(context) : config.getNetworkStatus());
-        config.setSdkVersion("1");
-        config.setSdkName("laudspeaker-android");
-        this.setup(config);
+        if (!this.isEnabled()){
+            Context context = this.getApplicationContext();
+            LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
+            config.setLogger(new LaudspeakerLogger(config));
+            File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
+            config.setStoragePrefix(config.getStoragePrefix() == null ? path.getAbsolutePath() : config.getStoragePrefix());
+            LaudspeakerPreferences preferences = config.getCachePreferences() == null ? new LaudspeakerPreferences(context) : config.getCachePreferences();
+            config.setCachePreferences(preferences);
+            config.setNetworkStatus(config.getNetworkStatus() == null ? new LaudspeakerNetworkStatus(context) : config.getNetworkStatus());
+            config.setSdkVersion("1");
+            config.setSdkName("laudspeaker-android");
+            this.setup(config);
+        }
+
         this.capture("$delivered", deliveryMessage);
+    }
+
+    /*
+    WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
+     */
+    private void handleDataMessage(Map<String, String> data) {
+        if (this.isQuietHours(data)) return;
+        this.notifyDelivered(data);
 
         createNotificationChannel();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(data.get("title")).setContentText(data.get("body")).setPriority(NotificationCompat.PRIORITY_MAX);
 
-        Intent intent = new Intent();//, this.config.getCachePreferences().getTargetActivityClass());
+        Intent intent = new Intent(this, this.config.getCachePreferences().getTargetActivityClass());
         intent.putExtra("customerID", data.get("customerID"));
         intent.putExtra("stepID", data.get("stepID"));
         intent.putExtra("templateID", data.get("templateID"));
