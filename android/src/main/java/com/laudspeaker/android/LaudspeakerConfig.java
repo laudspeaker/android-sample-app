@@ -5,12 +5,15 @@ import com.google.gson.Gson;
 public class LaudspeakerConfig {
     private Class<?> targetActivityClass; // Target Activity class reference
     private boolean updatedClass = false;
+    private boolean updatedDSN = false;
     private boolean updatedHost = false;
     private boolean updatedKey = false;
     public static final String defaultHost = "https://laudspeaker.com";
+    public static final String defaultDSN = "https://627a7b79a7f54f3e893c807ad8314d31@o4506038702964736.ingest.us.sentry.io/4507223408508928";
     public static final String defaultKey = "";
     private String apiKey = defaultKey;
     private String host = defaultHost;
+    private String sentryDSN = defaultDSN;
     private boolean debug = false;
     private int flushAt = 1;
     private int maxQueueSize = 1000;
@@ -32,13 +35,15 @@ public class LaudspeakerConfig {
         this.apiKey = apiKey;
     }
 
-    public LaudspeakerConfig(String apiKey, String host, Class<?> targetActivityClass, boolean updatedKey, boolean updatedHost, boolean updatedClass) {
+    public LaudspeakerConfig(String apiKey, String host, Class<?> targetActivityClass, String dsn, boolean updatedKey, boolean updatedHost, boolean updatedClass, boolean updatedDSN) {
         this.apiKey = apiKey;
         this.host = host;
         this.targetActivityClass = targetActivityClass;
+        this.sentryDSN = dsn;
         this.updatedHost = updatedHost;
         this.updatedClass = updatedClass;
         this.updatedKey = updatedKey;
+        this.updatedDSN = updatedDSN;
     }
 
     // Getters and Setters for all properties
@@ -53,6 +58,17 @@ public class LaudspeakerConfig {
 
     public boolean getUpdatedClass() {
         return this.updatedClass;
+    }
+    public boolean getUpdatedDSN() {
+        return this.updatedDSN;
+    }
+
+    public String getSentryDSN() {
+        return sentryDSN;
+    }
+
+    public void setSentryDSN(String sentryDSN) {
+        this.sentryDSN = sentryDSN;
     }
 
     public String getApiKey() {

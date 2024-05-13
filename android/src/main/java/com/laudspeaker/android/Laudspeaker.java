@@ -35,6 +35,13 @@ import org.threeten.bp.ZoneId;
 import org.threeten.bp.format.DateTimeFormatter;
 import org.threeten.bp.LocalTime;
 
+import io.sentry.ISpan;
+import io.sentry.Sentry;
+import io.sentry.SentryEvent;
+import io.sentry.android.core.SentryAndroid;
+import io.sentry.ITransaction;
+import io.sentry.protocol.Message;
+
 
 public class Laudspeaker extends FirebaseMessagingService {
     private static int notificationIconResId = com.google.android.gms.base.R.drawable.common_google_signin_btn_icon_dark; // Default icon in the library
@@ -56,6 +63,10 @@ public class Laudspeaker extends FirebaseMessagingService {
     public static <T extends LaudspeakerConfig> Laudspeaker with(T config, Context context) {
         Laudspeaker instance = new Laudspeaker(); // Assuming there's a default constructor or appropriate constructor available
         AndroidThreeTen.init(context);
+        SentryAndroid.init(context, options -> {
+            options.setDsn(config.getSentryDSN());
+            options.setTracesSampleRate(1.0);
+        });
         instance.setup(config);
         instance.getFcmTokenAsync(new FcmTokenCallback() {
             @Override
@@ -106,6 +117,9 @@ public class Laudspeaker extends FirebaseMessagingService {
                 if (config.getUpdatedClass()) {
                     this.memoryPreferences.setTargetActivityClass(config.getTargetActivityClass());
                 }
+                if (config.getUpdatedDSN()) {
+                    this.memoryPreferences.setValue(LaudspeakerPreferences.SENTRY_DSN, config.getSentryDSN());
+                }
 
                 this.enabled = true;
 
@@ -126,14 +140,21 @@ public class Laudspeaker extends FirebaseMessagingService {
     }
 
     public void handlePushOpened(Intent intent) {
-        if (intent != null && intent.getExtras() != null) {
-            Map<String, Object> openMessage = new HashMap<>();
-            openMessage.put("customerID", intent.getStringExtra("customerID"));
-            openMessage.put("stepID", intent.getStringExtra("stepID"));
-            openMessage.put("templateID", intent.getStringExtra("templateID"));
-            openMessage.put("messageID", intent.getStringExtra("messageID"));
-            openMessage.put("workspaceID", intent.getStringExtra("workspaceID"));
-            this.capture("$opened", openMessage);
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.handlePushOpened()", "task");
+        try {
+            if (intent != null && intent.getExtras() != null) {
+                Map<String, Object> openMessage = new HashMap<>();
+                openMessage.put("customerID", intent.getStringExtra("customerID"));
+                openMessage.put("stepID", intent.getStringExtra("stepID"));
+                openMessage.put("templateID", intent.getStringExtra("templateID"));
+                openMessage.put("messageID", intent.getStringExtra("messageID"));
+                openMessage.put("workspaceID", intent.getStringExtra("workspaceID"));
+                this.capture("$opened", openMessage);
+            }
+        } catch (Exception e) {
+            Sentry.captureException(e);
+        } finally {
+            transaction.finish();
         }
     }
 
@@ -232,6 +253,7 @@ public class Laudspeaker extends FirebaseMessagingService {
     }
 
     public void capture(String event, Map<String, Object> properties) {
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.capture()", "task");
         try {
             if (!isEnabled()) {
                 config.getLogger().log("capture call not allowed, Laudspeaker instance not enabled.");
@@ -256,50 +278,65 @@ public class Laudspeaker extends FirebaseMessagingService {
             if (queue != null) {
                 queue.add(laudspeakerEvent);
             }
-
         } catch (Throwable e) {
             if (config != null) {
                 config.getLogger().log("Capture failed: " + e);
             }
+            Sentry.captureException(e);
+        } finally {
+            transaction.finish();
         }
     }
 
     public void identify(String primaryKey, Map<String, Object> userProperties) {
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.identify()", "task");
 
-        if (!isEnabled()) {
-            return;
-        }
-
-        Map<String, Object> props = userProperties == null ? new HashMap<>() : userProperties;
-
-
-        if (primaryKey == null || primaryKey.trim().isEmpty()) {
-            if (config != null) {
-                config.getLogger().log("identify call not allowed, primary key is invalid: " + primaryKey);
+        try {
+            if (!isEnabled()) {
+                return;
             }
-            return;
-        } else {
-            props.put("distinct_id", primaryKey);
-        }
 
-        String previousPrimaryKey = getPrimaryKey();
+            Map<String, Object> props = userProperties == null ? new HashMap<>() : userProperties;
 
-        capture("$identify", props);
 
-        // Check if primary key being set is the same as previously set
-        if (!previousPrimaryKey.equals(primaryKey)) {
-            setPrimaryKey(primaryKey);
+            if (primaryKey == null || primaryKey.trim().isEmpty()) {
+                if (config != null) {
+                    config.getLogger().log("identify call not allowed, primary key is invalid: " + primaryKey);
+                }
+                return;
+            } else {
+                props.put("distinct_id", primaryKey);
+            }
+
+            String previousPrimaryKey = getPrimaryKey();
+
+            capture("$identify", props);
+
+            // Check if primary key being set is the same as previously set
+            if (!previousPrimaryKey.equals(primaryKey)) {
+                setPrimaryKey(primaryKey);
+            }
+        } catch (Exception e) {
+            Sentry.captureException(e);
+        } finally {
+            transaction.finish();
         }
 
     }
 
     public void set(Map<String, Object> userProperties) {
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.set()", "task");
+        try {
+            if (!isEnabled()) {
+                return;
+            }
 
-        if (!isEnabled()) {
-            return;
+            capture("$set", userProperties);
+        } catch (Exception e) {
+            Sentry.captureException(e);
+        } finally {
+            transaction.finish();
         }
-
-        capture("$set", userProperties);
     }
 
     public void sendFcmTokenAsync() {
@@ -341,6 +378,7 @@ public class Laudspeaker extends FirebaseMessagingService {
     }
 
     public void close() {
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.close()", "task");
         synchronized (setupLock) {
             try {
                 enabled = false;
@@ -357,38 +395,55 @@ public class Laudspeaker extends FirebaseMessagingService {
                 if (config != null) {
                     config.getLogger().log("Close failed: " + e);
                 }
+                Sentry.captureException(e);
+            } finally {
+                transaction.finish();
             }
         }
     }
 
     public boolean isQuietHours(Map<String, String> data) {
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.isQuietHours()", "task");
         boolean isQuietHour = false;
+        try {
 
-        Gson gson = new Gson();
-        QuietHours quietHours = gson.fromJson(data.get("quietHours"), QuietHours.class);
+            Gson gson = new Gson();
+            QuietHours quietHours = gson.fromJson(data.get("quietHours"), QuietHours.class);
 
-        if (quietHours != null) {
-            String utcStartTime = convertTimeToUTC(quietHours.getStartTime(), 0);
-            String utcEndTime = convertTimeToUTC(quietHours.getEndTime(), 0);
+            if (quietHours != null) {
+                String utcStartTime = convertTimeToUTC(quietHours.getStartTime(), 0);
+                String utcEndTime = convertTimeToUTC(quietHours.getEndTime(), 0);
 
-            ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-            String utcNowString = now.format(formatter);
+                ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+                String utcNowString = now.format(formatter);
 
-            isQuietHour = isWithinInterval(utcStartTime, utcEndTime, utcNowString);
+                isQuietHour = isWithinInterval(utcStartTime, utcEndTime, utcNowString);
+            }
+        } catch (Exception e) {
+            Sentry.captureException(e);
+        } finally {
+            transaction.finish();
         }
         return isQuietHour;
     }
 
     public void reset() {
-        if (!isEnabled()) {
-            return;
-        }
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.reset()", "task");
+        try {
+            if (!isEnabled()) {
+                return;
+            }
 
-        List<String> except = Arrays.asList(LaudspeakerPreferences.VERSION, LaudspeakerPreferences.BUILD);
-        getPreferences().clear(except);
-        if (queue != null) {
-            queue.clear();
+            List<String> except = Arrays.asList(LaudspeakerPreferences.VERSION, LaudspeakerPreferences.BUILD);
+            getPreferences().clear(except);
+            if (queue != null) {
+                queue.clear();
+            }
+        } catch (Exception e) {
+            Sentry.captureException(e);
+        } finally {
+            transaction.finish();
         }
     }
 
@@ -406,48 +461,65 @@ public class Laudspeaker extends FirebaseMessagingService {
     }
 
     private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = "My Notification Channel";
-            String description = "Channel description";
-            int importance = NotificationManager.IMPORTANCE_HIGH;
-            NotificationChannel channel = new NotificationChannel("CHANNEL_ID", name, importance);
-            channel.setDescription(description);
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.createNotificationChannel()", "task");
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                CharSequence name = "My Notification Channel";
+                String description = "Channel description";
+                int importance = NotificationManager.IMPORTANCE_HIGH;
+                NotificationChannel channel = new NotificationChannel("CHANNEL_ID", name, importance);
+                channel.setDescription(description);
+                NotificationManager notificationManager = getSystemService(NotificationManager.class);
+                notificationManager.createNotificationChannel(channel);
+            }
+        } catch (Exception e) {
+            Sentry.captureException(e);
+        } finally {
+            transaction.finish();
         }
+
     }
 
     public void notifyDelivered(Map<String, String> data) {
-        Map<String, Object> deliveryMessage = new HashMap<>();
-        deliveryMessage.put("customerID", data.get("customerID"));
-        deliveryMessage.put("stepID", data.get("stepID"));
-        deliveryMessage.put("templateID", data.get("templateID"));
-        deliveryMessage.put("messageID", data.get("messageID"));
-        deliveryMessage.put("workspaceID", data.get("workspaceID"));
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.notifyDelivered()", "task");
+        try {
+            Map<String, Object> deliveryMessage = new HashMap<>();
+            deliveryMessage.put("customerID", data.get("customerID"));
+            deliveryMessage.put("stepID", data.get("stepID"));
+            deliveryMessage.put("templateID", data.get("templateID"));
+            deliveryMessage.put("messageID", data.get("messageID"));
+            deliveryMessage.put("workspaceID", data.get("workspaceID"));
 
-        if (!this.isEnabled()){
-            Context context = this.getApplicationContext();
-            LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
-            config.setLogger(new LaudspeakerLogger(config));
-            File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
-            config.setStoragePrefix(config.getStoragePrefix() == null ? path.getAbsolutePath() : config.getStoragePrefix());
-            LaudspeakerPreferences preferences = config.getCachePreferences() == null ? new LaudspeakerPreferences(context) : config.getCachePreferences();
-            config.setCachePreferences(preferences);
-            config.setNetworkStatus(config.getNetworkStatus() == null ? new LaudspeakerNetworkStatus(context) : config.getNetworkStatus());
-            config.setSdkVersion("1");
-            config.setSdkName("laudspeaker-android");
-            this.setup(config);
+            if (!this.isEnabled()) {
+                Context context = this.getApplicationContext();
+                LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
+                config.setLogger(new LaudspeakerLogger(config));
+                File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
+                config.setStoragePrefix(config.getStoragePrefix() == null ? path.getAbsolutePath() : config.getStoragePrefix());
+                LaudspeakerPreferences preferences = config.getCachePreferences() == null ? new LaudspeakerPreferences(context) : config.getCachePreferences();
+                config.setCachePreferences(preferences);
+                config.setNetworkStatus(config.getNetworkStatus() == null ? new LaudspeakerNetworkStatus(context) : config.getNetworkStatus());
+                config.setSdkVersion("1");
+                config.setSdkName("laudspeaker-android");
+                this.setup(config);
+            }
+
+            this.capture("$delivered", deliveryMessage);
+        } catch (Exception e) {
+            Sentry.captureException(e);
+        } finally {
+            transaction.finish();
         }
 
-        this.capture("$delivered", deliveryMessage);
     }
 
     /*
     WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
      */
     private void handleDataMessage(Map<String, String> data) {
-        if (this.isQuietHours(data)) return;
         this.notifyDelivered(data);
+
+        if (this.isQuietHours(data)) return;
 
         createNotificationChannel();
 

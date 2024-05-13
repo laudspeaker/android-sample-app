@@ -18,8 +18,9 @@ public class LaudspeakerPreferences {
     public static final String BUILD = "build";
     public static final String HOST = "host";
     public static final String API_KEY = "api_key";
+    public static final String SENTRY_DSN = "sentry_dsn";
     public static final String ACTIVITY_CLASS = "activity_class";
-    public static final Set<String> ALL_INTERNAL_KEYS = Set.of(CUSTOMER_ID, PRIMARY_KEY, FCM_TOKEN, VERSION, BUILD, HOST, API_KEY, ACTIVITY_CLASS);
+    public static final Set<String> ALL_INTERNAL_KEYS = Set.of(CUSTOMER_ID, PRIMARY_KEY, FCM_TOKEN, VERSION, BUILD, HOST, API_KEY, ACTIVITY_CLASS, SENTRY_DSN);
     private final SharedPreferences preferences;
 
     public LaudspeakerPreferences(Context context) {

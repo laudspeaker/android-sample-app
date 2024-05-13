@@ -39,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         identify_button.setOnClickListener {
             val myMap: MutableMap<String, Any> = HashMap()
             myMap["time"] = System.currentTimeMillis()
-            laudspeaker.identify("00000000", myMap)
+            laudspeaker.identify("mahamad@laudspeaker.com", myMap)
         }
         val fire_button = findViewById<Button>(R.id.fire_button)
         fire_button.setOnClickListener {
