@@ -449,15 +449,24 @@ public class Laudspeaker extends FirebaseMessagingService {
 
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
-        if (remoteMessage.getData().size() > 0) {
-            Map<String, String> data = remoteMessage.getData();
-            handleDataMessage(data);
+        Map<String, String> data = remoteMessage.getData();
+        String title = null;
+        String body = null;
+
+        // Prioritize notification payload if it exists
+        if (remoteMessage.getNotification() != null) {
+            title = remoteMessage.getNotification().getTitle();
+            body = remoteMessage.getNotification().getBody();
         }
 
-        if (remoteMessage.getNotification() != null) {
-            String messageBody = remoteMessage.getNotification().getBody();
-            handleNotification(messageBody);
+        // If notification payload does not exist, use data payload
+        if (title == null || body == null) {
+            title = data.get("title");
+            body = data.get("body");
         }
+
+        // Pass data and title, body to the handler
+        handleDataMessage(data, title, body);
     }
 
     private void createNotificationChannel() {
@@ -516,14 +525,14 @@ public class Laudspeaker extends FirebaseMessagingService {
     /*
     WARNING:DO NOT USE ANY DEFAULT-NULL CLASS VARIABLES HERE
      */
-    private void handleDataMessage(Map<String, String> data) {
+    private void handleDataMessage(Map<String, String> data,String title, String body) {
         this.notifyDelivered(data);
 
         if (this.isQuietHours(data)) return;
 
         createNotificationChannel();
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(data.get("title")).setContentText(data.get("body")).setPriority(NotificationCompat.PRIORITY_MAX);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID").setSmallIcon(this.getNotificationIconResId()).setContentTitle(title).setContentText(body).setPriority(NotificationCompat.PRIORITY_MAX);
 
         Intent intent = new Intent(this, this.config.getCachePreferences().getTargetActivityClass());
         intent.putExtra("customerID", data.get("customerID"));
