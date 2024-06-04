@@ -63,10 +63,12 @@ public class Laudspeaker extends FirebaseMessagingService {
     public static <T extends LaudspeakerConfig> Laudspeaker with(T config, Context context) {
         Laudspeaker instance = new Laudspeaker(); // Assuming there's a default constructor or appropriate constructor available
         AndroidThreeTen.init(context);
-        SentryAndroid.init(context, options -> {
-            options.setDsn(config.getSentryDSN());
-            options.setTracesSampleRate(1.0);
-        });
+        if (!Sentry.isEnabled()) {
+            SentryAndroid.init(context, options -> {
+                options.setDsn(config.getSentryDSN());
+                options.setTracesSampleRate(1.0);
+            });
+        }
         instance.setup(config);
         instance.getFcmTokenAsync(new FcmTokenCallback() {
             @Override
