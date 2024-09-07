@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.laudspeaker.myapplication"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.laudspeaker.myapplication"
