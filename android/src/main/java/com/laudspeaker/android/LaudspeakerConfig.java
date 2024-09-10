@@ -16,7 +16,7 @@ public class LaudspeakerConfig {
     private String apiKey = defaultKey;
     private String host = defaultHost;
     private String sentryDSN = defaultDSN;
-    private boolean debug = false;
+    private boolean debug = true;
     private int flushAt = 1;
     private int maxQueueSize = 1000;
     private int maxBatchSize = 50;
@@ -35,12 +35,12 @@ public class LaudspeakerConfig {
     private LaudspeakerContext laudspeakerContext;
 
 
-    public LaudspeakerConfig(String apiKey, Context context) {
+    public LaudspeakerConfig(Context context, String apiKey) {
         this.apiKey = apiKey;
         this.laudspeakerContext = new LaudspeakerContext(context, this);
     }
 
-    public LaudspeakerConfig(String apiKey, String host, Class<?> targetActivityClass, String dsn, boolean updatedKey, boolean updatedHost, boolean updatedClass, boolean updatedDSN, Context context) {
+    public LaudspeakerConfig(Context context, String apiKey, String host, Class<?> targetActivityClass, String dsn, boolean updatedKey, boolean updatedHost, boolean updatedClass, boolean updatedDSN) {
         this.apiKey = apiKey;
         this.host = host;
         this.targetActivityClass = targetActivityClass;

@@ -518,7 +518,8 @@ public class Laudspeaker extends FirebaseMessagingService {
 
             if (!this.isEnabled()) {
                 Context context = this.getApplicationContext();
-                LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
+                //LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(context, null);
+                //LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
                 config.setLogger(new LaudspeakerLogger(config));
                 File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
                 config.setStoragePrefix(config.getStoragePrefix() == null ? path.getAbsolutePath() : config.getStoragePrefix());
@@ -597,7 +598,6 @@ public class Laudspeaker extends FirebaseMessagingService {
     private void handleNotification(String messageBody) {
         System.out.println("Got a notification message:" + messageBody.toString());
     }
-
 
     // Define a callback interface
     public interface FcmTokenCallback {
