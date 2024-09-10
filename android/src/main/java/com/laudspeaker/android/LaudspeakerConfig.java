@@ -30,6 +30,7 @@ public class LaudspeakerConfig {
     private LaudspeakerNetworkStatus networkStatus = null;
     private LaudspeakerDateProvider dateProvider = new LaudspeakerDateProvider();
     private LaudspeakerPropertiesSanitizer sanitizer;
+    //private LaudspeakerContext = new LaudspeakerContext();
 
     public LaudspeakerConfig(String apiKey) {
         this.apiKey = apiKey;
@@ -44,6 +45,7 @@ public class LaudspeakerConfig {
         this.updatedClass = updatedClass;
         this.updatedKey = updatedKey;
         this.updatedDSN = updatedDSN;
+        //this.LaudspeakerContext = LaudsepakerContext;
     }
 
     // Getters and Setters for all properties
@@ -168,4 +170,13 @@ public class LaudspeakerConfig {
     public void setCachePreferences(LaudspeakerPreferences cachePreferences) {
         this.cachePreferences = cachePreferences;
     }
+
+    public String getSdkName(){
+        return this.sdkName;
+    }
+
+    public String getSdkVersion() {
+        return this.sdkVersion;
+    }
+
 }

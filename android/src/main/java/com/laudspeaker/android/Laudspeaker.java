@@ -373,6 +373,16 @@ public class Laudspeaker extends FirebaseMessagingService {
 
         Map<String, Object> props = new HashMap<>();
 
+        /*
+        config?.context?.getStaticContext()?.let {
+            props.putAll(it)
+        }
+
+        config?.context?.getDynamicContext()?.let {
+            props.putAll(it)
+        }
+        */
+
         if (properties != null) {
             props.putAll(properties);
         }
