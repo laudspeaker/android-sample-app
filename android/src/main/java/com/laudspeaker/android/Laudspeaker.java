@@ -373,15 +373,20 @@ public class Laudspeaker extends FirebaseMessagingService {
 
         Map<String, Object> props = new HashMap<>();
 
-        /*
-        config?.context?.getStaticContext()?.let {
-            props.putAll(it)
+        // Check if config and context are not null, then get static context and add to props
+        if (config != null && config.getLaudspeakerContext() != null) {
+            Map<String, Object> staticContext = config.getLaudspeakerContext().getStaticContext();
+            if (staticContext != null) {
+                props.putAll(staticContext);
+            }
+
+            // Get dynamic context and add to props
+            Map<String, Object> dynamicContext = config.getLaudspeakerContext().getDynamicContext();
+            if (dynamicContext != null) {
+                props.putAll(dynamicContext);
+            }
         }
 
-        config?.context?.getDynamicContext()?.let {
-            props.putAll(it)
-        }
-        */
 
         if (properties != null) {
             props.putAll(properties);

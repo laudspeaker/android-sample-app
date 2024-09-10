@@ -1,5 +1,7 @@
 package com.laudspeaker.android;
 
+import android.content.Context;
+
 import com.google.gson.Gson;
 
 public class LaudspeakerConfig {
@@ -30,13 +32,15 @@ public class LaudspeakerConfig {
     private LaudspeakerNetworkStatus networkStatus = null;
     private LaudspeakerDateProvider dateProvider = new LaudspeakerDateProvider();
     private LaudspeakerPropertiesSanitizer sanitizer;
-    //private LaudspeakerContext = new LaudspeakerContext();
+    private LaudspeakerContext laudspeakerContext;
 
-    public LaudspeakerConfig(String apiKey) {
+
+    public LaudspeakerConfig(String apiKey, Context context) {
         this.apiKey = apiKey;
+        this.laudspeakerContext = new LaudspeakerContext(context, this);
     }
 
-    public LaudspeakerConfig(String apiKey, String host, Class<?> targetActivityClass, String dsn, boolean updatedKey, boolean updatedHost, boolean updatedClass, boolean updatedDSN) {
+    public LaudspeakerConfig(String apiKey, String host, Class<?> targetActivityClass, String dsn, boolean updatedKey, boolean updatedHost, boolean updatedClass, boolean updatedDSN, Context context) {
         this.apiKey = apiKey;
         this.host = host;
         this.targetActivityClass = targetActivityClass;
@@ -45,10 +49,14 @@ public class LaudspeakerConfig {
         this.updatedClass = updatedClass;
         this.updatedKey = updatedKey;
         this.updatedDSN = updatedDSN;
-        //this.LaudspeakerContext = LaudsepakerContext;
+        this.laudspeakerContext = new LaudspeakerContext(context, this);
     }
 
     // Getters and Setters for all properties
+
+    public LaudspeakerContext getLaudspeakerContext() {
+        return this.laudspeakerContext;
+    }
 
     public boolean getUpdatedHost() {
         return this.updatedHost;

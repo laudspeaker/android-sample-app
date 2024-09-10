@@ -30,7 +30,7 @@ public class LaudspeakerContext {
         return (int) (value / density);
     }
 
-    private Map<String, Object> getStaticContext() {
+    public Map<String, Object> getStaticContext() {
         if (cacheStaticContext == null) {
             cacheStaticContext = new HashMap<>();
 
