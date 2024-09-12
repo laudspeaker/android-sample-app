@@ -518,7 +518,7 @@ public class Laudspeaker extends FirebaseMessagingService {
 
             if (!this.isEnabled()) {
                 Context context = this.getApplicationContext();
-                //LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(context, null);
+                LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(context, null);
                 //LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
                 config.setLogger(new LaudspeakerLogger(config));
                 File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
