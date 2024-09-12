@@ -273,8 +273,9 @@ public class Laudspeaker extends FirebaseMessagingService {
 
             Map<String, Object> mergedProperties = buildProperties(properties);
             Map<String, Object> sanitizedProperties = config != null && config.getPropertiesSanitizer() != null ? config.getPropertiesSanitizer().sanitize(mergedProperties) : mergedProperties;
+            Map<String, Object> contextProperties = buildContext();
 
-            LaudspeakerEvent laudspeakerEvent = new LaudspeakerEvent(event, customerId, sanitizedProperties);
+            LaudspeakerEvent laudspeakerEvent = new LaudspeakerEvent(event, customerId, sanitizedProperties, contextProperties);
 
 
             if (queue != null) {
@@ -372,6 +373,31 @@ public class Laudspeaker extends FirebaseMessagingService {
     private Map<String, Object> buildProperties(Map<String, Object> properties) {
 
         Map<String, Object> props = new HashMap<>();
+        /*
+        // Check if config and context are not null, then get static context and add to props
+        if (config != null && config.getLaudspeakerContext() != null) {
+            Map<String, Object> staticContext = config.getLaudspeakerContext().getStaticContext();
+            if (staticContext != null) {
+                props.putAll(staticContext);
+            }
+
+            // Get dynamic context and add to props
+            Map<String, Object> dynamicContext = config.getLaudspeakerContext().getDynamicContext();
+            if (dynamicContext != null) {
+                props.putAll(dynamicContext);
+            }
+        }
+        */
+
+        if (properties != null) {
+            props.putAll(properties);
+        }
+        return props;
+    }
+
+    private Map<String, Object> buildContext() {
+
+        Map<String, Object> props = new HashMap<>();
 
         // Check if config and context are not null, then get static context and add to props
         if (config != null && config.getLaudspeakerContext() != null) {
@@ -387,10 +413,6 @@ public class Laudspeaker extends FirebaseMessagingService {
             }
         }
 
-
-        if (properties != null) {
-            props.putAll(properties);
-        }
         return props;
     }
 
