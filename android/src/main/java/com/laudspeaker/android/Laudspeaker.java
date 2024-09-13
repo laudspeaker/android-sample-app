@@ -151,7 +151,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 openMessage.put("templateID", intent.getStringExtra("templateID"));
                 openMessage.put("messageID", intent.getStringExtra("messageID"));
                 openMessage.put("workspaceID", intent.getStringExtra("workspaceID"));
-                this.capture("$opened", openMessage);
+                this.fire("$opened", openMessage);
             }
         } catch (Exception e) {
             Sentry.captureException(e);
@@ -254,11 +254,11 @@ public class Laudspeaker extends FirebaseMessagingService {
         return enabled;
     }
 
-    public void capture(String event, Map<String, Object> properties) {
-        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.capture()", "task");
+    public void fire(String event, Map<String, Object> properties) {
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.fire()", "task");
         try {
             if (!isEnabled()) {
-                config.getLogger().log("capture call not allowed, Laudspeaker instance not enabled.");
+                config.getLogger().log("fire call not allowed, Laudspeaker instance not enabled.");
                 return;
             }
 
@@ -266,7 +266,7 @@ public class Laudspeaker extends FirebaseMessagingService {
 
             if (customerId == null || customerId.trim().isEmpty()) {
                 if (config != null) {
-                    config.getLogger().log("capture call not allowed, customer ID is invalid: " + customerId);
+                    config.getLogger().log("fire call not allowed, customer ID is invalid: " + customerId);
                 }
                 return;
             }
@@ -283,7 +283,7 @@ public class Laudspeaker extends FirebaseMessagingService {
             }
         } catch (Throwable e) {
             if (config != null) {
-                config.getLogger().log("Capture failed: " + e);
+                config.getLogger().log("Fire failed: " + e);
             }
             Sentry.captureException(e);
         } finally {
@@ -313,7 +313,7 @@ public class Laudspeaker extends FirebaseMessagingService {
 
             String previousPrimaryKey = getPrimaryKey();
 
-            capture("$identify", props);
+            fire("$identify", props);
 
             // Check if primary key being set is the same as previously set
             if (!previousPrimaryKey.equals(primaryKey)) {
@@ -334,7 +334,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 return;
             }
 
-            capture("$set", userProperties);
+            fire("$set", userProperties);
         } catch (Exception e) {
             Sentry.captureException(e);
         } finally {
@@ -353,7 +353,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 if (token != null && !token.trim().isEmpty()) {
                     Map<String, Object> props = new HashMap<>();
                     props.put("androidDeviceToken", token);
-                    capture("$fcm", props);
+                    fire("$fcm", props);
                 } else {
                     if (config != null) {
                         config.getLogger().log("sendFcmToken called but token was empty.");
@@ -553,7 +553,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 this.setup(config);
             }
 
-            this.capture("$delivered", deliveryMessage);
+            this.fire("$delivered", deliveryMessage);
         } catch (Exception e) {
             Sentry.captureException(e);
         } finally {

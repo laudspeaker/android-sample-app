@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
             val myMap: MutableMap<String, Any> = HashMap()
             myMap["time"] = System.currentTimeMillis()
             println("Laudspeaker API: inside capture")
-            laudspeaker.capture("hello", myMap)
+            laudspeaker.fire("hello", myMap)
         }
         val switchToggle = findViewById<Switch>(R.id.switchToggle)
         switchToggle.setOnCheckedChangeListener { buttonView, isChecked -> // Prevent the switch from changing state immediately
