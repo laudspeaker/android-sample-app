@@ -8,8 +8,8 @@ val appModule = module {
     single {
         val config = LaudspeakerAndroidConfig(
             this.androidContext(),
-            "WjzfCfRwSXDtG3H6u72b4PGate0B1a4MDhu51j0x",
-            "https://b25df60f2464.ngrok.app", //"https://app.laudspeaker.com/api",
+            "FkyTRWAcnb6wENW5Qcc9bm7ro0KU57oCcTOt2oCq",
+            "https://3d2bc2089b9a.ngrok.app",//"https://app.laudspeaker.com/api",
             MainActivity::class.java // Might need to adjust based on actual usage
         )
         LaudspeakerAndroid.with(get(), config)

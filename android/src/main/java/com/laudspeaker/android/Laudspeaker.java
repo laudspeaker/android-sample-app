@@ -20,6 +20,7 @@ import com.google.gson.Gson;
 
 import java.io.File;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -70,6 +71,13 @@ public class Laudspeaker extends FirebaseMessagingService {
             });
         }
         instance.setup(config);
+
+        // Send the $start event
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("time", config.getDateProvider().currentDate());
+        //properties.put("time", new Date()); // You can also use config.getDateProvider().currentDate()
+        instance.fire("$start", properties);
+
         instance.getFcmTokenAsync(new FcmTokenCallback() {
             @Override
             public void onTokenReceived(String token) {
