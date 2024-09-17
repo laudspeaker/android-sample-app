@@ -1,5 +1,7 @@
 package com.laudspeaker.android;
 
+import android.content.Context;
+
 import com.google.gson.Gson;
 
 public class LaudspeakerConfig {
@@ -14,7 +16,7 @@ public class LaudspeakerConfig {
     private String apiKey = defaultKey;
     private String host = defaultHost;
     private String sentryDSN = defaultDSN;
-    private boolean debug = false;
+    private boolean debug = true;
     private int flushAt = 1;
     private int maxQueueSize = 1000;
     private int maxBatchSize = 50;
@@ -30,12 +32,15 @@ public class LaudspeakerConfig {
     private LaudspeakerNetworkStatus networkStatus = null;
     private LaudspeakerDateProvider dateProvider = new LaudspeakerDateProvider();
     private LaudspeakerPropertiesSanitizer sanitizer;
+    private LaudspeakerContext laudspeakerContext;
 
-    public LaudspeakerConfig(String apiKey) {
+
+    public LaudspeakerConfig(Context context, String apiKey) {
         this.apiKey = apiKey;
+        this.laudspeakerContext = new LaudspeakerContext(context, this);
     }
 
-    public LaudspeakerConfig(String apiKey, String host, Class<?> targetActivityClass, String dsn, boolean updatedKey, boolean updatedHost, boolean updatedClass, boolean updatedDSN) {
+    public LaudspeakerConfig(Context context, String apiKey, String host, Class<?> targetActivityClass, String dsn, boolean updatedKey, boolean updatedHost, boolean updatedClass, boolean updatedDSN) {
         this.apiKey = apiKey;
         this.host = host;
         this.targetActivityClass = targetActivityClass;
@@ -44,9 +49,14 @@ public class LaudspeakerConfig {
         this.updatedClass = updatedClass;
         this.updatedKey = updatedKey;
         this.updatedDSN = updatedDSN;
+        this.laudspeakerContext = new LaudspeakerContext(context, this);
     }
 
     // Getters and Setters for all properties
+
+    public LaudspeakerContext getLaudspeakerContext() {
+        return this.laudspeakerContext;
+    }
 
     public boolean getUpdatedHost() {
         return this.updatedHost;
@@ -168,4 +178,13 @@ public class LaudspeakerConfig {
     public void setCachePreferences(LaudspeakerPreferences cachePreferences) {
         this.cachePreferences = cachePreferences;
     }
+
+    public String getSdkName(){
+        return this.sdkName;
+    }
+
+    public String getSdkVersion() {
+        return this.sdkVersion;
+    }
+
 }

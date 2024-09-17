@@ -89,6 +89,9 @@ public class LaudspeakerQueue {
 
                     try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os))) {
                         config.getSerializer().toJson(event, writer);
+                        config.getLogger().log("Event is " + event.getEvent() + ".");
+                        config.getLogger().log("Event is " + event.getId() + ".");
+                        config.getLogger().log("Event is " + event.getPayload() + ".");
                         writer.flush();
                     } catch (Exception e) {
                         e.printStackTrace();

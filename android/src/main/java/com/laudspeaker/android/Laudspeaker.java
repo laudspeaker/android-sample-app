@@ -20,6 +20,7 @@ import com.google.gson.Gson;
 
 import java.io.File;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -70,6 +71,13 @@ public class Laudspeaker extends FirebaseMessagingService {
             });
         }
         instance.setup(config);
+
+        // Send the $start event
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("time", config.getDateProvider().currentDate());
+        //properties.put("time", new Date()); // You can also use config.getDateProvider().currentDate()
+        instance.fire("$start", properties);
+
         instance.getFcmTokenAsync(new FcmTokenCallback() {
             @Override
             public void onTokenReceived(String token) {
@@ -151,7 +159,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 openMessage.put("templateID", intent.getStringExtra("templateID"));
                 openMessage.put("messageID", intent.getStringExtra("messageID"));
                 openMessage.put("workspaceID", intent.getStringExtra("workspaceID"));
-                this.capture("$opened", openMessage);
+                this.fire("$opened", openMessage);
             }
         } catch (Exception e) {
             Sentry.captureException(e);
@@ -254,11 +262,11 @@ public class Laudspeaker extends FirebaseMessagingService {
         return enabled;
     }
 
-    public void capture(String event, Map<String, Object> properties) {
-        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.capture()", "task");
+    public void fire(String event, Map<String, Object> properties) {
+        ITransaction transaction = Sentry.startTransaction("LaudspeakerAndroid.fire()", "task");
         try {
             if (!isEnabled()) {
-                config.getLogger().log("capture call not allowed, Laudspeaker instance not enabled.");
+                config.getLogger().log("fire call not allowed, Laudspeaker instance not enabled.");
                 return;
             }
 
@@ -266,15 +274,16 @@ public class Laudspeaker extends FirebaseMessagingService {
 
             if (customerId == null || customerId.trim().isEmpty()) {
                 if (config != null) {
-                    config.getLogger().log("capture call not allowed, customer ID is invalid: " + customerId);
+                    config.getLogger().log("fire call not allowed, customer ID is invalid: " + customerId);
                 }
                 return;
             }
 
             Map<String, Object> mergedProperties = buildProperties(properties);
             Map<String, Object> sanitizedProperties = config != null && config.getPropertiesSanitizer() != null ? config.getPropertiesSanitizer().sanitize(mergedProperties) : mergedProperties;
+            Map<String, Object> contextProperties = buildContext();
 
-            LaudspeakerEvent laudspeakerEvent = new LaudspeakerEvent(event, customerId, sanitizedProperties);
+            LaudspeakerEvent laudspeakerEvent = new LaudspeakerEvent(event, customerId, sanitizedProperties, contextProperties);
 
 
             if (queue != null) {
@@ -282,7 +291,7 @@ public class Laudspeaker extends FirebaseMessagingService {
             }
         } catch (Throwable e) {
             if (config != null) {
-                config.getLogger().log("Capture failed: " + e);
+                config.getLogger().log("Fire failed: " + e);
             }
             Sentry.captureException(e);
         } finally {
@@ -312,7 +321,7 @@ public class Laudspeaker extends FirebaseMessagingService {
 
             String previousPrimaryKey = getPrimaryKey();
 
-            capture("$identify", props);
+            fire("$identify", props);
 
             // Check if primary key being set is the same as previously set
             if (!previousPrimaryKey.equals(primaryKey)) {
@@ -333,7 +342,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 return;
             }
 
-            capture("$set", userProperties);
+            fire("$set", userProperties);
         } catch (Exception e) {
             Sentry.captureException(e);
         } finally {
@@ -352,7 +361,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 if (token != null && !token.trim().isEmpty()) {
                     Map<String, Object> props = new HashMap<>();
                     props.put("androidDeviceToken", token);
-                    capture("$fcm", props);
+                    fire("$fcm", props);
                 } else {
                     if (config != null) {
                         config.getLogger().log("sendFcmToken called but token was empty.");
@@ -372,10 +381,46 @@ public class Laudspeaker extends FirebaseMessagingService {
     private Map<String, Object> buildProperties(Map<String, Object> properties) {
 
         Map<String, Object> props = new HashMap<>();
+        /*
+        // Check if config and context are not null, then get static context and add to props
+        if (config != null && config.getLaudspeakerContext() != null) {
+            Map<String, Object> staticContext = config.getLaudspeakerContext().getStaticContext();
+            if (staticContext != null) {
+                props.putAll(staticContext);
+            }
+
+            // Get dynamic context and add to props
+            Map<String, Object> dynamicContext = config.getLaudspeakerContext().getDynamicContext();
+            if (dynamicContext != null) {
+                props.putAll(dynamicContext);
+            }
+        }
+        */
 
         if (properties != null) {
             props.putAll(properties);
         }
+        return props;
+    }
+
+    private Map<String, Object> buildContext() {
+
+        Map<String, Object> props = new HashMap<>();
+
+        // Check if config and context are not null, then get static context and add to props
+        if (config != null && config.getLaudspeakerContext() != null) {
+            Map<String, Object> staticContext = config.getLaudspeakerContext().getStaticContext();
+            if (staticContext != null) {
+                props.putAll(staticContext);
+            }
+
+            // Get dynamic context and add to props
+            Map<String, Object> dynamicContext = config.getLaudspeakerContext().getDynamicContext();
+            if (dynamicContext != null) {
+                props.putAll(dynamicContext);
+            }
+        }
+
         return props;
     }
 
@@ -503,7 +548,8 @@ public class Laudspeaker extends FirebaseMessagingService {
 
             if (!this.isEnabled()) {
                 Context context = this.getApplicationContext();
-                LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
+                LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(context, null);
+                //LaudspeakerAndroidConfig config = new LaudspeakerAndroidConfig(null);
                 config.setLogger(new LaudspeakerLogger(config));
                 File path = new File(context.getCacheDir(), "laudspeaker-disk-queue");
                 config.setStoragePrefix(config.getStoragePrefix() == null ? path.getAbsolutePath() : config.getStoragePrefix());
@@ -515,7 +561,7 @@ public class Laudspeaker extends FirebaseMessagingService {
                 this.setup(config);
             }
 
-            this.capture("$delivered", deliveryMessage);
+            this.fire("$delivered", deliveryMessage);
         } catch (Exception e) {
             Sentry.captureException(e);
         } finally {
@@ -582,7 +628,6 @@ public class Laudspeaker extends FirebaseMessagingService {
     private void handleNotification(String messageBody) {
         System.out.println("Got a notification message:" + messageBody.toString());
     }
-
 
     // Define a callback interface
     public interface FcmTokenCallback {

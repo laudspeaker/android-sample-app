@@ -19,6 +19,10 @@ public class LaudspeakerEvent {
      */
     private final Map<String, Object> payload;
     /*
+    Event context.
+     */
+    private final Map<String, Object> context;
+    /*
     Evvent timestamp.
      */
     private final Date timestamp;
@@ -30,10 +34,11 @@ public class LaudspeakerEvent {
     private FCMToken $fcm;
 
 
-    public LaudspeakerEvent(String event, String id, Map<String, Object> payload) {
+    public LaudspeakerEvent(String event, String id, Map<String, Object> payload, Map<String, Object> context) {
         this.event = event;
         this.correlationValue = id;
         this.payload = payload;
+        this.context = context;
         this.timestamp = new Date();
         this.uuid = UUID.randomUUID();
     }
@@ -49,6 +54,10 @@ public class LaudspeakerEvent {
 
     public Map<String, Object> getPayload() {
         return payload;
+    }
+
+    public Map<String, Object> getContext() {
+        return context;
     }
 
     public Date getTimestamp() {
